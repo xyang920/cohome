@@ -42,6 +42,8 @@ Three tables, joined user → property → community:
 ```
 index.html, app.html
 css/styles.css          component classes (buttons, cards, chips, bars)
+assets/*.png            original tier renders (Small / Medium / large), not deployed
+assets/web/*.webp       1000px WebP copies used on the tier cards (~75 KB each), deployed
 js/data.js              mock data: tiers, buildings, member, stats (edit numbers here)
 js/seed.js              seed rows for the user / portfolio / community tables
 js/schema.js            field validation for the three tables

@@ -1,4 +1,4 @@
-// Shared UI helpers: escaping, icons and schematic floor plans.
+// Shared UI helpers: escaping and icons.
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ESC[c]);
@@ -21,20 +21,3 @@ const ICONS = {
 
 export const icon = (name, cls = 'h-6 w-6') =>
   `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
-
-// Schematic floor plans (not to scale between tiers beyond rough proportion).
-const PLANS = {
-  S: { w: 150, rooms: [[0, 0, 60, 50, 'Bed'], [60, 0, 40, 30, 'Bath'], [100, 0, 50, 30, 'Kitchen'], [60, 30, 90, 50, 'Desk + living'], [0, 50, 60, 30, 'Storage']] },
-  M: { w: 180, rooms: [[0, 0, 70, 45, 'Sleeping alcove'], [70, 0, 45, 30, 'Bath'], [115, 0, 65, 30, 'Kitchen'], [70, 30, 110, 50, 'Living'], [0, 45, 70, 35, 'Work niche']] },
-  L: { w: 220, rooms: [[0, 0, 85, 50, 'Bedroom'], [85, 0, 50, 30, 'Bath'], [135, 0, 85, 30, 'Kitchen'], [85, 30, 135, 50, 'Living'], [0, 50, 85, 30, 'Flex room']] },
-};
-
-export function floorPlan(tierId) {
-  const plan = PLANS[tierId];
-  if (!plan) return '';
-  const rooms = plan.rooms.map(([x, y, w, h, label]) => `
-    <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="currentColor" stroke-width="1"/>
-    <text x="${x + w / 2}" y="${y + h / 2 + 3}" text-anchor="middle" font-size="8" fill="currentColor">${esc(label)}</text>`).join('');
-  return `<svg viewBox="-2 -2 ${plan.w + 4} 84" class="w-full h-auto text-stone-500" role="img" aria-label="Schematic floor plan, tier ${esc(tierId)}">
-    <rect x="0" y="0" width="${plan.w}" height="80" fill="none" stroke="currentColor" stroke-width="2"/>${rooms}</svg>`;
-}

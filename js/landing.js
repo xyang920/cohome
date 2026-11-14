@@ -1,7 +1,7 @@
 import { TIERS, MARKET_RENT, PROBLEM_STATS, BUILDINGS, SHARE_PRICE, RENT_PER_SQFT } from './data.js';
 import { getTier, projectOwnership, portfolioAllocation, validateWaitlist, formatUSD } from './model.js';
 import { saveWaitlistEntry, isLiveStorage } from './waitlist.js';
-import { esc, $, icon, floorPlan } from './ui.js';
+import { esc, $, icon } from './ui.js';
 
 const STEPS = [
   ['join', 'Join', 'Become a member and pick a tier. No mortgage, no down-payment hunt.'],
@@ -51,9 +51,11 @@ function renderStatic() {
         <h3 class="font-display text-2xl">${esc(t.name)}</h3><span class="badge badge-muted">Tier ${esc(t.id)}</span>
       </div>
       <p class="text-sm text-stone-500">${esc(t.audience)}</p>
-      <div class="my-5">${floorPlan(t.id)}</div>
+      <div class="my-5 aspect-[5/4] flex items-center justify-center">
+        <img src="${esc(t.image)}" alt="${esc(t.imageAlt)}" width="1000" height="800" loading="lazy" decoding="async" class="max-h-full w-full object-contain">
+      </div>
       <dl class="grid grid-cols-3 gap-2 text-center">
-        <div><dt class="label">Size</dt><dd class="font-semibold">${esc(t.sqft)} sq ft</dd></div>
+        <div><dt class="label">Size (sq ft)</dt><dd class="font-semibold whitespace-nowrap">${esc(t.sqft)}</dd></div>
         <div><dt class="label">Shares</dt><dd class="font-semibold">${t.shares}</dd></div>
         <div><dt class="label">Monthly</dt><dd class="font-semibold">${formatUSD(t.monthly)}</dd><dd class="text-xs text-stone-500">${t.areaSqft} sq ft × $${RENT_PER_SQFT}</dd></div>
       </dl>

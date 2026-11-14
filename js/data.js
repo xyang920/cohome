@@ -18,6 +18,8 @@ export const TIERS = Object.freeze([
     areaSqft: 200,
     shares: 200,
     audience: 'Single professionals',
+    image: 'assets/web/tier-s.webp',
+    imageAlt: 'Cutaway render of the Private Pod: platform bed with storage, desk by the window, glass-walled bath and kitchenette',
     features: ['Fold-away or platform bed', '3-piece acoustic bath', 'Built-in work desk', 'Dry kitchenette'],
   },
   {
@@ -27,6 +29,8 @@ export const TIERS = Object.freeze([
     areaSqft: 300,
     shares: 300,
     audience: 'A separate living nook, or couples',
+    image: 'assets/web/tier-m.webp',
+    imageAlt: 'Cutaway render of the Flex Suite: sleeping alcove behind a slatted screen, sofa lounge, work niche, kitchenette and bath',
     features: ['Separate sleeping alcove', 'Work niche', 'Extra storage', 'Kitchenette + 3-piece bath'],
   },
   {
@@ -36,6 +40,8 @@ export const TIERS = Object.freeze([
     areaSqft: 600,
     shares: 600,
     audience: 'Growing households',
+    image: 'assets/web/tier-l.webp',
+    imageAlt: 'Cutaway render of the one bedroom + flex: bedroom, flexible room with daybed and desk, open living and dining, full kitchen and bath',
     features: ['Separate bedroom', 'Flexible room', 'Full kitchenette', 'Larger storage'],
   },
 ].map(withRent));

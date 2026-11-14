@@ -32,7 +32,7 @@ python -I - "$ZIP" <<'PY'
 import sys, zipfile, pathlib
 out = sys.argv[1]
 files = [pathlib.Path("index.html"), pathlib.Path("app.html")]
-for folder in ("css", "js"):
+for folder in ("css", "js", "assets/web"):
     files += sorted(p for p in pathlib.Path(folder).rglob("*") if p.is_file())
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
     for f in files:

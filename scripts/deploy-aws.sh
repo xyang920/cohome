@@ -29,7 +29,7 @@ fi
 
 # 2. Upload site files only (no tests, scripts, SQL or repo metadata)
 aws s3 sync . "s3://$BUCKET" --delete --exclude "*" \
-  --include "index.html" --include "app.html" --include "css/*" --include "js/*" \
+  --include "index.html" --include "app.html" --include "css/*" --include "js/*" --include "assets/web/*" \
   --cache-control "public, max-age=300" >/dev/null
 for page in index.html app.html; do
   aws s3 cp "$page" "s3://$BUCKET/$page" --content-type "text/html; charset=utf-8" \
