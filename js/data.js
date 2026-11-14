@@ -2,9 +2,12 @@
 // Pricing values come from the product spec (sections 5 and 11).
 // Anything marked `illustrative` is demo data, not a market figure.
 
-export const SHARE_PRICE = 250; // USD per share
 export const MONTHS_TO_OWN = 240; // 20 years of payments => shares fully owned
 export const RENT_PER_SQFT = 3; // USD per square foot per month, same for every unit
+export const SHARE_SPLIT = 0.5; // share of each monthly payment that buys shares; the rest covers running costs
+// One share = one square foot, priced so the share part of 20 years of rent buys the whole home:
+// $3 × 50% × 240 months = $360 per share. A day-one buyout costs shares × SHARE_PRICE (no discount).
+export const SHARE_PRICE = RENT_PER_SQFT * SHARE_SPLIT * MONTHS_TO_OWN;
 
 // `areaSqft` is the area the rent is charged on (shares map 1:1 to square feet);
 // `sqft` is the size range shown to visitors. Monthly rent = areaSqft × RENT_PER_SQFT.

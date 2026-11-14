@@ -1,5 +1,5 @@
 // Pure business logic for CoHome. No DOM access, so it runs in Node tests.
-import { SHARE_PRICE, MONTHS_TO_OWN } from './data.js';
+import { SHARE_PRICE, MONTHS_TO_OWN, SHARE_SPLIT } from './data.js';
 
 const round = (n, dp = 1) => Math.round(n * 10 ** dp) / 10 ** dp;
 const DAY_MS = 86_400_000;
@@ -43,6 +43,26 @@ export function projectOwnership({
     totalPaid: monthlyFee * months,
     extraPerMonth: round(extraPerMonth, 2),
     monthsToFullOwnership: Math.ceil(remaining / perMonth),
+  };
+}
+
+/** Monthly payment split: the share part buys shares, the rest covers running costs and debt. */
+export const paymentSplit = (tier, split = SHARE_SPLIT) => ({
+  toShares: tier.monthly * split,
+  toRunningCosts: tier.monthly * (1 - split),
+});
+
+/**
+ * Buy the rest of a home outright at the share price (no discount for paying early).
+ * After a buyout the member still pays the running-cost part every month.
+ */
+export function buyoutQuote(tier, ownedShares = 0, sharePrice = SHARE_PRICE, split = SHARE_SPLIT) {
+  const sharesToBuy = Math.max(0, tier.shares - ownedShares);
+  return {
+    sharesToBuy,
+    cost: sharesToBuy * sharePrice,
+    monthlyAfter: paymentSplit(tier, split).toRunningCosts,
+    monthlyNow: tier.monthly,
   };
 }
 

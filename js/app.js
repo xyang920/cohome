@@ -3,6 +3,7 @@ import { SEED } from './seed.js';
 import { createDb } from './db.js';
 import {
   getTier, memberSummary, upsizeOptions, validateSwapDates, matchSwap, portfolioAllocation, formatUSD,
+  buyoutQuote, paymentSplit,
 } from './model.js';
 import { profileCard, communityCard, renderCommunities, renderDataTables, freeUnitOptions } from './app-data.js';
 import { esc, $ } from './ui.js';
@@ -43,6 +44,8 @@ function setState(patch) {
   render();
 }
 
+/** What the member pays now: full rent, or only running costs once the home is fully owned. */
+const monthlyDue = (tier, shares) => (shares >= tier.shares ? paymentSplit(tier).toRunningCosts : tier.monthly);
 const logActivity = (text) => [text, ...state.activity].slice(0, 8);
 const building = (id) => BUILDINGS.find((b) => b.id === id);
 const isoDay = (offsetDays) => new Date(Date.now() + offsetDays * 86_400_000).toISOString().slice(0, 10);
@@ -88,7 +91,7 @@ function renderDashboard() {
   $('#kpis').innerHTML = [
     kpi('Shares held', `${m.shares} / ${s.tier.shares}`, `${s.ownedPct}% of your ${s.tier.name}`),
     kpi('Equity value', formatUSD(s.equity), `${m.shares} × $${SHARE_PRICE} per share`),
-    kpi('Current home', home ? home.name : m.community.location, `${m.property.id} · ${formatUSD(s.tier.monthly)}/month`),
+    kpi('Current home', home ? home.name : m.community.location, `${m.property.id} · ${formatUSD(monthlyDue(s.tier, m.shares))}/month`),
     kpi('Priority points', String(m.points), 'Earned by paying fees and buying shares'),
   ].join('');
   $('#profile-row').innerHTML = profileCard(db.resolveUser(m.user.id)) + communityCard(m.community);
@@ -96,8 +99,11 @@ function renderDashboard() {
   $('#ownership').innerHTML = `
     <div class="bar-track !h-4"><div class="bar-fill bg-moss" style="width:${Math.min(100, s.ownedPct)}%"></div></div>
     <div class="mt-3 flex justify-between text-sm"><span>${s.ownedPct}% owned</span><span>${s.remainingShares} shares to go</span></div>
-    <p class="mt-4 text-sm text-stone-600">At your current payment you fully own your ${esc(s.tier.name)} in
-      <strong>${s.yearsToFull} years</strong>. <button class="underline text-moss" data-go="upsize">Pay more or upsize →</button></p>`;
+    ${s.remainingShares === 0
+    ? `<p class="mt-4 text-sm text-stone-600">You own your ${esc(s.tier.name)} outright. You pay ${formatUSD(paymentSplit(s.tier).toRunningCosts)}/month for running costs.</p>`
+    : `<p class="mt-4 text-sm text-stone-600">Of your ${formatUSD(s.tier.monthly)} payment, ${formatUSD(paymentSplit(s.tier).toShares)} buys shares. You fully own your ${esc(s.tier.name)} in
+      <strong>${s.yearsToFull} years</strong>, or buy it out now for <strong>${formatUSD(buyoutQuote(s.tier, m.shares).cost)}</strong>.
+      <button class="underline text-moss" data-go="upsize">Buy out or upsize →</button></p>`}`;
 
   $('#dash-alloc').innerHTML = portfolioAllocation(s.equity, BUILDINGS)
     .map((a) => bar(`${a.name} (${a.pct.toFixed(0)}%)`, a.equity, s.equity, 'bg-moss')).join('');
@@ -174,15 +180,31 @@ function confirmSwap(communityId) {
 const upsizeUnit = (m, tierId) =>
   db.freeUnits({ communityId: m.home, tier: tierId })[0] ?? db.freeUnits({ tier: tierId })[0];
 
+function buyoutCard(m, tier) {
+  const q = buyoutQuote(tier, m.shares);
+  if (q.sharesToBuy === 0) {
+    return `<div class="card mb-6"><p class="eyebrow">Your home</p><h2 class="font-display text-3xl mt-1">You own your ${esc(tier.name)} outright</h2>
+      <p class="text-stone-600 mt-1">You pay ${formatUSD(q.monthlyAfter)}/month for running costs.</p></div>`;
+  }
+  return `
+    <div class="card mb-6">
+      <p class="eyebrow">Buy out your ${esc(tier.name)}</p>
+      <h2 class="font-display text-3xl mt-1">Own it outright for ${formatUSD(q.cost)}</h2>
+      <p class="text-stone-600 mt-1">${q.sharesToBuy} remaining shares × ${formatUSD(SHARE_PRICE)}, no early-payment discount.
+        Your payment drops from ${formatUSD(q.monthlyNow)} to ${formatUSD(q.monthlyAfter)}/month (running costs only).</p>
+      <button class="btn-primary mt-4" data-buyout="1">Buy out for ${formatUSD(q.cost)}</button>
+    </div>`;
+}
+
 function renderUpsize() {
   const m = me();
   const current = getTier(TIERS, m.tier);
   const larger = TIERS.filter((t) => t.shares > current.shares);
   if (larger.length === 0) {
-    $('#upsize').innerHTML = `<div class="card">You're in our largest tier (${esc(current.name)}).</div>`;
+    $('#upsize').innerHTML = buyoutCard(m, current) + `<div class="card">You're in our largest tier (${esc(current.name)}).</div>`;
     return;
   }
-  $('#upsize').innerHTML = larger.map((t) => {
+  $('#upsize').innerHTML = buyoutCard(m, current) + larger.map((t) => {
     const u = upsizeOptions(m, TIERS, t.id);
     const unit = upsizeUnit(m, t.id);
     const where = unit
@@ -211,6 +233,19 @@ function renderUpsize() {
       </div>
     </div>`;
   }).join('');
+}
+
+function confirmBuyout() {
+  const m = me();
+  const tier = getTier(TIERS, m.tier);
+  const q = buyoutQuote(tier, m.shares);
+  if (q.sharesToBuy === 0) return;
+  if (!db.users.update(m.user.id, { shares: tier.shares }).ok) return;
+  setState({
+    member: { ...state.member, points: m.points + q.sharesToBuy },
+    activity: logActivity(`Bought out ${m.property.id} for ${formatUSD(q.cost)}; now ${formatUSD(q.monthlyAfter)}/month`),
+  });
+  showTab('dashboard');
 }
 
 function confirmUpsize(tierId, mode) {
@@ -310,12 +345,13 @@ function render() {
 }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-tab], [data-go], [data-confirm-swap], [data-upsize], [data-vote], [data-remove-user]');
+  const t = e.target.closest('[data-tab], [data-go], [data-confirm-swap], [data-upsize], [data-buyout], [data-vote], [data-remove-user]');
   if (!t) return;
   if (t.dataset.tab) showTab(t.dataset.tab);
   else if (t.dataset.go) showTab(t.dataset.go);
   else if (t.dataset.confirmSwap) confirmSwap(t.dataset.confirmSwap);
   else if (t.dataset.upsize) confirmUpsize(t.dataset.upsize, t.dataset.mode);
+  else if (t.dataset.buyout) confirmBuyout();
   else if (t.dataset.removeUser) removeUser(t.dataset.removeUser);
   else if (t.dataset.vote && !state.vote) setState({ vote: t.dataset.vote, activity: logActivity('Voted in the co-op ballot') });
 });

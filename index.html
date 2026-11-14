@@ -51,8 +51,8 @@
       <div class="relative">
         <div class="rounded-3xl bg-moss text-sand p-8 shadow-xl">
           <p class="text-sm uppercase tracking-wider opacity-80">Your share, your network</p>
-          <p class="font-display text-4xl mt-2" id="hero-equity">$75,000</p>
-          <p class="opacity-80">Flex Suite, fully owned after 20 years</p>
+          <p class="font-display text-4xl mt-2" id="hero-equity"></p>
+          <p class="opacity-80" id="hero-equity-sub"></p>
           <div class="mt-6 grid grid-cols-3 gap-3 text-center text-sm" id="hero-buildings"></div>
         </div>
       </div>
@@ -80,7 +80,7 @@
       <div class="mx-auto max-w-6xl px-4 py-16">
         <p class="eyebrow">Homes</p>
         <h2 class="section-title">Same standard in every building</h2>
-        <p class="mt-3 text-stone-600 max-w-2xl">Furnished, with a built-in desk, modular storage and acoustic separation (STC ≥ 55). Rent is $3 per square foot for every home, and shares map one-to-one to square feet at $250 a share.</p>
+        <p class="mt-3 text-stone-600 max-w-2xl" id="tiers-intro"></p>
         <div class="mt-10 grid md:grid-cols-3 gap-6" id="tier-cards"></div>
       </div>
     </section>
@@ -111,7 +111,7 @@
             <div><p class="label">Your equity</p><p class="font-display text-4xl text-moss" id="out-equity"></p><p class="text-sm text-stone-500" id="out-full"></p></div>
           </div>
           <div class="mt-8 space-y-4" id="out-bars"></div>
-          <p class="mt-6 text-xs text-stone-500 leading-relaxed"><strong>Assumptions (as given in the spec):</strong> ownership accrues evenly to 100% after 20 years of base-tier payments; anything above the base fee buys extra shares at $250. $250/share and the tier fees are demo values, not a financial offer. Value growth defaults to 0%.</p>
+          <p class="mt-6 text-xs text-stone-500 leading-relaxed" id="calc-assumptions"></p>
         </div>
       </div>
     </section>
@@ -140,7 +140,7 @@
             </div>
             <div>
               <h3 class="font-semibold">Diversified like a portfolio</h3>
-              <p class="text-sm text-stone-600 mt-1">A $75,000 Flex Suite stake, spread across live buildings by value:</p>
+              <p class="text-sm text-stone-600 mt-1" id="alloc-intro"></p>
               <div class="mt-3 space-y-2" id="alloc"></div>
               <p class="mt-2 text-xs text-stone-500">Building values are illustrative demo data.</p>
             </div>

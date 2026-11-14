@@ -1,5 +1,7 @@
-import { TIERS, MARKET_RENT, PROBLEM_STATS, BUILDINGS, SHARE_PRICE, RENT_PER_SQFT } from './data.js';
-import { getTier, projectOwnership, portfolioAllocation, validateWaitlist, formatUSD } from './model.js';
+import { TIERS, MARKET_RENT, PROBLEM_STATS, BUILDINGS, SHARE_PRICE, RENT_PER_SQFT, SHARE_SPLIT } from './data.js';
+import {
+  getTier, projectOwnership, portfolioAllocation, validateWaitlist, formatUSD, buyoutQuote, paymentSplit,
+} from './model.js';
 import { saveWaitlistEntry, isLiveStorage } from './waitlist.js';
 import { esc, $, icon } from './ui.js';
 
@@ -21,7 +23,8 @@ const AMENITIES = [
 
 const FAQ = [
   ['What do I actually own?', 'Shares tied to your home’s tier, backed by real estate in the network’s property companies. The final legal vehicle (co-op, tenancy-in-common or portfolio trust) is being chosen with NYC counsel.'],
-  ['How does ownership build up?', 'At your tier’s base payment, ownership accrues evenly to 100% over 20 years. Paying more buys extra shares at $250 each and gets you there sooner.'],
+  ['How does ownership build up?', `Half of every monthly payment buys shares at ${formatUSD(SHARE_PRICE)} each; the other half covers running costs, maintenance and debt. At your tier’s base payment you own your home outright after 20 years. Paying more buys extra shares and gets you there sooner.`],
+  ['Can I buy my home outright on day one?', `Yes. A buyout costs your tier’s shares × ${formatUSD(SHARE_PRICE)}, with no early-payment discount: ${TIERS.map((t) => `${t.name} ${formatUSD(t.shares * SHARE_PRICE)}`).join(', ')}. You then pay only the running-cost half each month.`],
   ['What happens when I move?', 'Request a swap with 30–60 days’ notice. If several members want the same home, priority points decide. Your shares don’t change.'],
   ['How do I earn priority points?', 'By paying your monthly fee and by buying extra shares.'],
   ['Can I sell?', 'Yes. Shares can be sold back to the co-op or to new members under transparent valuation rules.'],
@@ -29,6 +32,19 @@ const FAQ = [
 ];
 
 const state = { tier: 'M' };
+const pct = Math.round(SHARE_SPLIT * 100);
+
+function tierOwnership(t) {
+  const split = paymentSplit(t);
+  const buyout = buyoutQuote(t, 0);
+  return `
+      <div class="mt-5 rounded-xl bg-sand p-3 text-sm space-y-1">
+        <p class="flex justify-between"><span>Builds equity each month</span><strong>${formatUSD(split.toShares)}</strong></p>
+        <p class="flex justify-between text-stone-600"><span>Running costs each month</span><span>${formatUSD(split.toRunningCosts)}</span></p>
+        <p class="flex justify-between border-t border-stone-200 pt-1 mt-1"><span>Buy out on day one</span><strong>${formatUSD(buyout.cost)}</strong></p>
+        <p class="text-xs text-stone-500">then ${formatUSD(buyout.monthlyAfter)}/month for running costs</p>
+      </div>`;
+}
 
 function renderStatic() {
   $('#stats').innerHTML = PROBLEM_STATS.map((s) => `
@@ -60,7 +76,7 @@ function renderStatic() {
         <div><dt class="label">Monthly</dt><dd class="font-semibold">${formatUSD(t.monthly)}</dd><dd class="text-xs text-stone-500">${t.areaSqft} sq ft × $${RENT_PER_SQFT}</dd></div>
       </dl>
       <ul class="mt-5 space-y-1 text-sm text-stone-600 flex-1">${t.features.map((f) => `<li>· ${esc(f)}</li>`).join('')}</ul>
-      <p class="mt-5 text-sm">Fully owned value: <strong>${formatUSD(t.shares * SHARE_PRICE)}</strong></p>
+      ${tierOwnership(t)}
     </article>`).join('');
 
   $('#amenities').innerHTML = AMENITIES.map(([ic, title, text]) => `
@@ -70,6 +86,12 @@ function renderStatic() {
   $('#faq-list').innerHTML = FAQ.map(([q, a]) => `
     <details class="py-4 group"><summary class="cursor-pointer font-medium list-none flex justify-between">${esc(q)}<span class="text-stone-400 group-open:rotate-45 transition">+</span></summary>
       <p class="mt-2 text-stone-600 text-sm">${esc(a)}</p></details>`).join('');
+
+  const flex = getTier(TIERS, 'M');
+  $('#hero-equity').textContent = formatUSD(flex.shares * SHARE_PRICE);
+  $('#hero-equity-sub').textContent = `A Flex Suite you own after 20 years at ${formatUSD(flex.monthly)}/month, or buy it out on day one`;
+  $('#tiers-intro').textContent = `Furnished, with a built-in desk, modular storage and acoustic separation (STC ≥ 55). Rent is $${RENT_PER_SQFT} per square foot for every home: ${pct}% buys shares (one share per square foot, ${formatUSD(SHARE_PRICE)} each) and ${100 - pct}% covers running costs.`;
+  $('#calc-assumptions').innerHTML = `<strong>Assumptions:</strong> ${pct}% of each base payment buys shares at ${formatUSD(SHARE_PRICE)} (so ownership reaches 100% after 20 years) and ${100 - pct}% covers running costs and debt. Anything above the base payment buys extra shares. Day-one buyouts cost shares × ${formatUSD(SHARE_PRICE)}, no discount. Demo values, not a financial offer. Value growth defaults to 0%.`;
 
   const cheapest = Math.min(...TIERS.map((t) => t.monthly));
   $('#hero-price').textContent = `From ${formatUSD(cheapest)}/month ($${RENT_PER_SQFT}/sq ft) · ownership accrues to 100% over 20 years`;
@@ -128,7 +150,11 @@ function updateCalc() {
     bar('CoHome: you own', r.equity, max, 'bg-moss'),
     bar('Renting: you pay', rentPaid, max, 'bg-clay'),
     bar('Renting: you own', 0, max, 'bg-clay'),
-  ].join('');
+  ].join('') + (() => {
+    const split = paymentSplit(tier);
+    const buyout = buyoutQuote(tier, 0);
+    return `<p class="text-sm text-stone-600 pt-2">Base payment ${formatUSD(tier.monthly)} = ${formatUSD(split.toShares)} to shares + ${formatUSD(split.toRunningCosts)} running costs. Or buy out on day one for <strong>${formatUSD(buyout.cost)}</strong>, then ${formatUSD(buyout.monthlyAfter)}/month.</p>`;
+  })();
 }
 
 function initCalc() {
@@ -178,6 +204,7 @@ function renderNetworkPanels() {
   $('#rent-compare').innerHTML = rows.map((r) => bar(r.label, r.value, max, r.color)).join('');
 
   const stake = getTier(TIERS, 'M').shares * SHARE_PRICE;
+  $('#alloc-intro').textContent = `A ${formatUSD(stake)} Flex Suite stake, spread across live buildings by value:`;
   $('#alloc').innerHTML = portfolioAllocation(stake, BUILDINGS)
     .map((a) => bar(`${a.name} (${a.pct.toFixed(0)}%)`, a.equity, stake, 'bg-moss')).join('');
 }

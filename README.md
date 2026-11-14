@@ -67,13 +67,14 @@ scripts/serve.mjs       local static server
 
 | Rule | Source |
 |---|---|
-| $250 per share; tiers S 200 / M 300 / L 600 shares | Spec §5, §11 |
+| Tiers S 200 / M 300 / L 600 shares; one share = one sq ft | Spec §5, §11 |
 | Rent is $3 per sq ft per month for every unit (`RENT_PER_SQFT`), charged on `areaSqft` (S 200 / M 300 / L 600 sq ft) → $600 / $900 / $1,800 a month | Product decision, Nov 2026 |
-| Ownership accrues evenly to 100% after 240 months at the base fee | Spec §5 (buy-back rule) |
-| Paying above the base fee buys extra shares at $250 | Spec §9 calculator logic |
+| 50% of each payment buys shares (`SHARE_SPLIT`), 50% covers running costs and debt. Share price = $3 × 50% × 240 months = **$360** (`SHARE_PRICE`), so the share half of 20 years of rent buys the whole home | Product decision, Nov 2026 |
+| Paying above the base fee buys extra shares at $360 | Spec §9 calculator logic |
+| Day-one buyout = shares still owed × $360, no early-payment discount (S $72,000 / M $108,000 / L $216,000); afterwards the member pays only the running-cost half (S $300 / M $450 / L $900 a month) | Product decision, Nov 2026 |
 | Swaps need 30–60 days' notice; equity unchanged | Spec §7 |
 | Contested swaps go to the member with the most priority points | Spec §7 |
-| Upsize shows shares needed, lump-sum vs. higher-monthly options | Spec §7 (M3) |
+| Upsize tab offers a buyout of the current home, plus lump-sum vs. higher-monthly options for a bigger tier | Spec §7 (M3) |
 
 Building availability, cut-off points, building value index and vote tallies are **illustrative mock data**, labelled as such in the UI.
 
@@ -118,4 +119,4 @@ To tear down: `aws amplify delete-app --app-id drrwzic15dvyt`.
 
 - Tailwind Play CDN is fine for a demo; for production, compile Tailwind instead.
 - No real auth, payments or share issuance (non-goals for the hackathon).
-- Open spec questions still affect numbers: entry stake, how much of the $3/sq ft rent buys shares vs. covers operations and debt, swap fee.
+- Open spec questions still affect numbers: entry stake (beyond the day-one buyout), whether $1.50/sq ft really covers running costs and debt, swap fee.
