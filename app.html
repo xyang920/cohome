@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SustainerPrice — Member demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <script src="js/tailwind.config.js"></script>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-sand text-ink font-sans antialiased">
+  <header class="bg-ink text-sand">
+    <div class="mx-auto max-w-6xl px-4 h-14 flex items-center justify-between">
+      <a href="index.html" class="font-display text-xl font-semibold">SustainerPrice</a>
+      <div class="flex items-center gap-3 text-sm">
+        <span class="badge bg-clay text-white">Demo · mock data</span>
+        <span id="member-name" class="hidden sm:inline opacity-80"></span>
+        <button id="reset" class="underline opacity-80 hover:opacity-100">Reset demo</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="mx-auto max-w-6xl px-4 py-8 grid lg:grid-cols-[220px_1fr] gap-8">
+    <nav aria-label="Member app" class="flex lg:flex-col gap-2 overflow-x-auto" id="tabs" role="tablist">
+      <button class="tab" role="tab" data-tab="dashboard">Dashboard</button>
+      <button class="tab" role="tab" data-tab="swap">Swap home</button>
+      <button class="tab" role="tab" data-tab="upsize">Upsize</button>
+      <button class="tab" role="tab" data-tab="vote">Vote</button>
+      <button class="tab" role="tab" data-tab="guest">Guest suite</button>
+      <button class="tab" role="tab" data-tab="communities">Communities</button>
+      <button class="tab" role="tab" data-tab="data">Data</button>
+    </nav>
+
+    <main>
+      <!-- M1 Dashboard -->
+      <section data-panel="dashboard" role="tabpanel">
+        <h1 class="section-title !mt-0">Welcome back</h1>
+        <div class="mt-6 grid sm:grid-cols-2 xl:grid-cols-4 gap-4" id="kpis"></div>
+        <div class="mt-6 grid lg:grid-cols-2 gap-6" id="profile-row"></div>
+        <div class="mt-6 grid lg:grid-cols-2 gap-6">
+          <div class="card"><h2 class="font-semibold">Path to full ownership</h2><div id="ownership" class="mt-4"></div></div>
+          <div class="card"><h2 class="font-semibold">Your equity across the network</h2>
+            <p class="text-sm text-stone-500">Spread by building value, like an index fund. Illustrative values.</p>
+            <div id="dash-alloc" class="mt-4 space-y-2"></div></div>
+        </div>
+        <div class="card mt-6"><h2 class="font-semibold">Activity</h2><ul id="activity" class="mt-3 space-y-2 text-sm text-stone-600"></ul></div>
+      </section>
+
+      <!-- M2 Swap -->
+      <section data-panel="swap" role="tabpanel" hidden>
+        <h1 class="section-title !mt-0">Swap your home</h1>
+        <p class="mt-2 text-stone-600">Move to another building with 30–60 days’ notice. Your shares and equity stay the same.</p>
+        <form id="swap-form" class="card mt-6 grid md:grid-cols-2 gap-4" novalidate>
+          <label class="block md:col-span-2"><span class="label">Destination</span><select name="building" id="swap-building" class="input mt-1"></select></label>
+          <label class="block"><span class="label">Tier</span><select name="tier" id="swap-tier" class="input mt-1"></select></label>
+          <div></div>
+          <label class="block"><span class="label">Move-in date</span><input type="date" name="start" id="swap-start" class="input mt-1"></label>
+          <label class="block"><span class="label">Stay until</span><input type="date" name="end" id="swap-end" class="input mt-1"></label>
+          <div class="md:col-span-2 flex items-center gap-4">
+            <button class="btn-primary px-5 py-2.5" type="submit">Check availability</button>
+            <span id="swap-error" class="text-sm text-red-700" role="alert"></span>
+          </div>
+        </form>
+        <div id="swap-result" class="mt-6" aria-live="polite"></div>
+      </section>
+
+      <!-- M3 Upsize -->
+      <section data-panel="upsize" role="tabpanel" hidden>
+        <h1 class="section-title !mt-0">Grow your space</h1>
+        <div id="upsize" class="mt-6"></div>
+      </section>
+
+      <!-- M4 Governance -->
+      <section data-panel="vote" role="tabpanel" hidden>
+        <h1 class="section-title !mt-0">Co-op vote: what opens next?</h1>
+        <p class="mt-2 text-stone-600">One member, one vote. Results are mock data plus your vote.</p>
+        <div id="vote" class="mt-6 space-y-4"></div>
+      </section>
+
+      <!-- M5 Guest suite -->
+      <section data-panel="guest" role="tabpanel" hidden>
+        <h1 class="section-title !mt-0">Book a guest suite</h1>
+        <form id="guest-form" class="card mt-6 grid md:grid-cols-3 gap-4 items-end" novalidate>
+          <label class="block"><span class="label">Arrival</span><input type="date" name="date" id="guest-date" class="input mt-1"></label>
+          <label class="block"><span class="label">Nights</span><input type="number" name="nights" min="1" max="7" value="2" class="input mt-1"></label>
+          <button class="btn-primary py-2.5" type="submit">Book</button>
+          <p id="guest-status" class="md:col-span-3 text-sm" role="status"></p>
+        </form>
+      </section>
+
+      <!-- Communities (community database) -->
+      <section data-panel="communities" role="tabpanel" hidden>
+        <h1 class="section-title !mt-0">Compare communities</h1>
+        <p class="mt-2 text-stone-600">Risk, safety, amenities and free homes in every building, from the community and portfolio data.</p>
+        <div id="communities" class="mt-6 grid lg:grid-cols-3 gap-6"></div>
+      </section>
+
+      <!-- Data (users / portfolio / communities tables) -->
+      <section data-panel="data" role="tabpanel" hidden>
+        <h1 class="section-title !mt-0">Data</h1>
+        <p class="mt-2 text-stone-600">The three demo tables. Changes are saved in this browser; <em>Reset demo</em> restores the seed data. All people are fictional.</p>
+        <form id="user-form" class="card mt-6 grid md:grid-cols-3 gap-4" novalidate>
+          <h2 class="md:col-span-3 font-semibold">Add a user</h2>
+          <label class="block"><span class="label">First name</span><input name="firstName" class="input mt-1" maxlength="50"><span class="field-error" data-for="firstName"></span></label>
+          <label class="block"><span class="label">Last name</span><input name="lastName" class="input mt-1" maxlength="50"><span class="field-error" data-for="lastName"></span></label>
+          <label class="block"><span class="label">Date of birth</span><input name="dateOfBirth" type="date" class="input mt-1"><span class="field-error" data-for="dateOfBirth"></span></label>
+          <label class="block"><span class="label">Shares</span><input name="shares" type="number" min="0" step="1" value="0" class="input mt-1"><span class="field-error" data-for="shares"></span></label>
+          <label class="block md:col-span-2"><span class="label">Property (free homes only)</span><select name="propertyId" id="user-property" class="input mt-1"></select><span class="field-error" data-for="propertyId"></span></label>
+          <div class="md:col-span-3 flex items-center gap-4"><button class="btn-primary px-5 py-2.5" type="submit">Add user</button><span id="user-status" class="text-sm" role="status"></span></div>
+        </form>
+        <div class="card mt-6"><h2 class="font-semibold">Users</h2><div id="tbl-users" class="mt-3"></div></div>
+        <div class="card mt-6"><h2 class="font-semibold">Portfolio</h2><div id="tbl-portfolio" class="mt-3"></div></div>
+        <div class="card mt-6"><h2 class="font-semibold">Communities</h2><div id="tbl-communities" class="mt-3"></div></div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

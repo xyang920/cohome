@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SustainerPrice — Own your home. Live anywhere.</title>
+  <meta name="description" content="Buy shares in compact, standardized homes. Live in any building in the network and keep your equity when you move.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <script src="js/tailwind.config.js"></script>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-sand text-ink font-sans antialiased">
+  <header class="sticky top-0 z-40 bg-sand/90 backdrop-blur border-b border-stone-200">
+    <nav class="mx-auto max-w-6xl px-4 h-14 flex items-center justify-between">
+      <a href="#" class="font-display text-xl font-semibold text-moss">SustainerPrice</a>
+      <div class="hidden md:flex gap-6 text-sm text-stone-600">
+        <a href="#how" class="hover:text-ink">How it works</a>
+        <a href="#tiers" class="hover:text-ink">Homes</a>
+        <a href="#calculator" class="hover:text-ink">Calculator</a>
+        <a href="#network" class="hover:text-ink">Network</a>
+        <a href="#faq" class="hover:text-ink">FAQ</a>
+      </div>
+      <div class="flex gap-2">
+        <a href="app.html" class="btn-ghost">Member demo</a>
+        <a href="#waitlist" class="btn-primary">Join the waitlist</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <!-- L1 Hero -->
+    <section class="mx-auto max-w-6xl px-4 pt-16 pb-20 grid md:grid-cols-2 gap-10 items-center">
+      <div>
+        <p class="eyebrow">Launching in Brooklyn, NYC</p>
+        <h1 class="font-display text-5xl md:text-6xl font-semibold leading-tight mt-3">Own your home.<br>Live anywhere.</h1>
+        <p class="mt-5 text-lg text-stone-600 max-w-md">Buy shares in a network of compact, fully managed homes. Live in any building, move when life changes, and keep every dollar of equity you build.</p>
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a href="#waitlist" class="btn-primary text-base px-5 py-3">Join the waitlist</a>
+          <a href="#calculator" class="btn-ghost text-base px-5 py-3">See your equity</a>
+        </div>
+        <p class="mt-6 text-sm text-stone-500">From $200/month · ownership accrues to 100% over 20 years</p>
+      </div>
+      <div class="relative">
+        <div class="rounded-3xl bg-moss text-sand p-8 shadow-xl">
+          <p class="text-sm uppercase tracking-wider opacity-80">Your share, your network</p>
+          <p class="font-display text-4xl mt-2" id="hero-equity">$75,000</p>
+          <p class="opacity-80">Flex Suite, fully owned after 20 years</p>
+          <div class="mt-6 grid grid-cols-3 gap-3 text-center text-sm" id="hero-buildings"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- L2 Problem -->
+    <section id="problem" class="bg-white border-y border-stone-200">
+      <div class="mx-auto max-w-6xl px-4 py-16">
+        <p class="eyebrow">The problem</p>
+        <h2 class="section-title">Renting builds nothing. Buying ties you down.</h2>
+        <p class="mt-3 text-stone-600 max-w-2xl">NYC renters aged 25–39 spend about $13.55B a year on rent. Buying means a down payment most can’t save and a home that locks you in for 5–10 years.</p>
+        <div class="mt-10 grid md:grid-cols-3 gap-6" id="stats"></div>
+      </div>
+    </section>
+
+    <!-- L3 How it works -->
+    <section id="how" class="mx-auto max-w-6xl px-4 py-16">
+      <p class="eyebrow">How it works</p>
+      <h2 class="section-title">Join once. Move and grow as often as you need.</h2>
+      <ol class="mt-10 grid md:grid-cols-4 gap-6" id="steps"></ol>
+    </section>
+
+    <!-- L5 Tiers -->
+    <section id="tiers" class="bg-white border-y border-stone-200">
+      <div class="mx-auto max-w-6xl px-4 py-16">
+        <p class="eyebrow">Homes</p>
+        <h2 class="section-title">Same standard in every building</h2>
+        <p class="mt-3 text-stone-600 max-w-2xl">Furnished, with a built-in desk, modular storage and acoustic separation (STC ≥ 55). Shares map roughly one-to-one to square feet, at $250 a share.</p>
+        <div class="mt-10 grid md:grid-cols-3 gap-6" id="tier-cards"></div>
+      </div>
+    </section>
+
+    <!-- L4 Calculator -->
+    <section id="calculator" class="mx-auto max-w-6xl px-4 py-16">
+      <p class="eyebrow">Equity calculator</p>
+      <h2 class="section-title">What you build vs. what renting builds</h2>
+      <div class="mt-10 grid lg:grid-cols-5 gap-8">
+        <form id="calc" class="lg:col-span-2 card space-y-6" onsubmit="return false">
+          <fieldset>
+            <legend class="label">Tier</legend>
+            <div class="mt-2 grid grid-cols-3 gap-2" id="calc-tiers"></div>
+          </fieldset>
+          <label class="block"><span class="label">Monthly payment <output id="fee-out" class="float-right font-semibold text-ink"></output></span>
+            <input id="fee" type="range" step="25" class="w-full mt-2 accent-moss"></label>
+          <label class="block"><span class="label">Years <output id="years-out" class="float-right font-semibold text-ink"></output></span>
+            <input id="years" type="range" min="1" max="30" value="20" class="w-full mt-2 accent-moss"></label>
+          <label class="block"><span class="label">Yearly value growth (assumption) <output id="appr-out" class="float-right font-semibold text-ink"></output></span>
+            <input id="appr" type="range" min="0" max="5" step="0.5" value="0" class="w-full mt-2 accent-moss"></label>
+          <label class="block"><span class="label">Comparable rent per month</span>
+            <input id="rent" type="number" min="0" step="10" value="1630" class="input mt-2">
+            <span class="text-xs text-stone-500">Default: Brooklyn renters aged 25–39 (2024 ACS PUMS, investor deck)</span></label>
+        </form>
+        <div class="lg:col-span-3 card" aria-live="polite">
+          <div class="grid sm:grid-cols-2 gap-6">
+            <div><p class="label">You own</p><p class="font-display text-4xl" id="out-shares"></p><p class="text-sm text-stone-500" id="out-pct"></p></div>
+            <div><p class="label">Your equity</p><p class="font-display text-4xl text-moss" id="out-equity"></p><p class="text-sm text-stone-500" id="out-full"></p></div>
+          </div>
+          <div class="mt-8 space-y-4" id="out-bars"></div>
+          <p class="mt-6 text-xs text-stone-500 leading-relaxed"><strong>Assumptions (as given in the spec):</strong> ownership accrues evenly to 100% after 20 years of base-tier payments; anything above the base fee buys extra shares at $250. $250/share and the tier fees are demo values, not a financial offer. Value growth defaults to 0%.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- L6 Network -->
+    <section id="network" class="bg-white border-y border-stone-200">
+      <div class="mx-auto max-w-6xl px-4 py-16">
+        <p class="eyebrow">The network</p>
+        <h2 class="section-title">One share, many buildings</h2>
+        <p class="mt-3 text-stone-600 max-w-2xl">Brooklyn first, then Manhattan and the dense cities where younger renters already spend the most. Your equity is backed by the whole portfolio, like an index fund for your home.</p>
+        <div class="mt-10 grid lg:grid-cols-5 gap-8">
+          <div class="lg:col-span-3">
+            <div id="map" class="h-96 rounded-2xl border border-stone-200 z-0" aria-label="Map of network buildings"></div>
+            <div class="mt-3 flex gap-4 text-sm text-stone-600">
+              <span class="flex items-center gap-1"><i class="dot bg-moss"></i>Live pilot</span>
+              <span class="flex items-center gap-1"><i class="dot bg-clay"></i>Planned</span>
+              <span class="flex items-center gap-1"><i class="dot bg-stone-400"></i>Future city</span>
+              <button id="map-toggle" class="ml-auto underline">Show all cities</button>
+            </div>
+          </div>
+          <div class="lg:col-span-2 space-y-8">
+            <div>
+              <h3 class="font-semibold">Rent per month vs. SustainerPrice</h3>
+              <div class="mt-3 space-y-2" id="rent-compare"></div>
+              <p class="mt-2 text-xs text-stone-500">Rent per renter aged 25–39, derived from the investor deck (2024 ACS PUMS).</p>
+            </div>
+            <div>
+              <h3 class="font-semibold">Diversified like a portfolio</h3>
+              <p class="text-sm text-stone-600 mt-1">A $75,000 Flex Suite stake, spread across live buildings by value:</p>
+              <div class="mt-3 space-y-2" id="alloc"></div>
+              <p class="mt-2 text-xs text-stone-500">Building values are illustrative demo data.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- L7 Living + management -->
+    <section id="living" class="mx-auto max-w-6xl px-4 py-16">
+      <p class="eyebrow">Shared abundance</p>
+      <h2 class="section-title">A small private home. A big shared one.</h2>
+      <div class="mt-10 grid sm:grid-cols-2 lg:grid-cols-3 gap-6" id="amenities"></div>
+    </section>
+
+    <!-- L8 Partners -->
+    <section id="partners" class="mx-auto max-w-6xl px-4 pb-16">
+      <div class="rounded-3xl bg-ink text-sand p-10 grid md:grid-cols-3 gap-6 items-center">
+        <div class="md:col-span-2">
+          <p class="eyebrow !text-clay">For partners</p>
+          <h2 class="font-display text-3xl mt-2">Bring your co-op or building into the network</h2>
+          <p class="mt-3 opacity-80">License the platform: matching, member management and the shared living standard. Your residents gain mobility across every SustainerPrice building.</p>
+        </div>
+        <a href="mailto:partners@example.com?subject=SustainerPrice%20partnership" class="btn-primary justify-self-start md:justify-self-end bg-clay hover:bg-clay/90">Talk to us</a>
+      </div>
+    </section>
+
+    <!-- L9 FAQ + waitlist -->
+    <section id="faq" class="bg-white border-y border-stone-200">
+      <div class="mx-auto max-w-6xl px-4 py-16 grid lg:grid-cols-2 gap-12">
+        <div>
+          <p class="eyebrow">FAQ</p>
+          <h2 class="section-title">Questions</h2>
+          <div class="mt-8 divide-y divide-stone-200" id="faq-list"></div>
+        </div>
+        <div id="waitlist">
+          <p class="eyebrow">Waitlist</p>
+          <h2 class="section-title">Be first in Brooklyn</h2>
+          <form id="waitlist-form" class="mt-8 card space-y-4" novalidate>
+            <label class="block"><span class="label">Name</span><input name="name" class="input mt-1" autocomplete="name" maxlength="100" required><span class="field-error" data-for="name"></span></label>
+            <label class="block"><span class="label">Email</span><input name="email" type="email" class="input mt-1" autocomplete="email" maxlength="254" required><span class="field-error" data-for="email"></span></label>
+            <fieldset><legend class="label">Preferred tier</legend>
+              <div class="mt-1 grid grid-cols-3 gap-2" id="wl-tiers"></div><span class="field-error" data-for="tier"></span></fieldset>
+            <fieldset><legend class="label">Would you put down a refundable deposit ($500–1,000)?</legend>
+              <div class="mt-1 flex gap-4">
+                <label class="flex items-center gap-2"><input type="radio" name="deposit" value="yes" class="accent-moss"> Yes</label>
+                <label class="flex items-center gap-2"><input type="radio" name="deposit" value="no" class="accent-moss"> Not yet</label>
+              </div><span class="field-error" data-for="deposit"></span></fieldset>
+            <button class="btn-primary w-full py-3 text-base" type="submit">Join the waitlist</button>
+            <p id="wl-status" class="text-sm" role="status"></p>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="mx-auto max-w-6xl px-4 py-10 text-sm text-stone-500 flex flex-wrap gap-4 justify-between">
+    <p>SustainerPrice · AECTECH 2026 hackathon demo. Not an offer of securities.</p>
+    <p>Stats: <a class="underline" href="https://www.sustainaprise.com/#idea" target="_blank" rel="noopener">Sustainaprise</a>, NeighborWorks America, 2024 ACS PUMS via the Sustainaprise investor deck.</p>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="js/landing.js"></script>
+</body>
+</html>

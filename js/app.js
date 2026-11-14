@@ -1,0 +1,339 @@
+import { TIERS, BUILDINGS, DEMO_MEMBER, PROPOSALS, SHARE_PRICE } from './data.js';
+import { SEED } from './seed.js';
+import { createDb } from './db.js';
+import {
+  getTier, memberSummary, upsizeOptions, validateSwapDates, matchSwap, portfolioAllocation, formatUSD,
+} from './model.js';
+import { profileCard, communityCard, renderCommunities, renderDataTables, freeUnitOptions } from './app-data.js';
+import { esc, $ } from './ui.js';
+
+const STORE_KEY = 'sp-demo-state-v2';
+const MOCK_VOTES = { 'bushwick-2': 41, 'manhattan-les': 57, 'partner-coop': 23 };
+const TABS = ['dashboard', 'swap', 'upsize', 'vote', 'guest', 'communities', 'data'];
+
+const initialState = () => ({
+  member: { ...DEMO_MEMBER }, vote: null, db: null,
+  activity: ['Joined the co-op · Tier M Flex Suite', 'Moved into Gowanus'],
+});
+
+function load() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE_KEY));
+    return saved?.member ? saved : initialState();
+  } catch {
+    return initialState();
+  }
+}
+
+let state = load();
+const persist = () => {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch { /* demo works without storage */ }
+};
+
+function openDb(snapshot) {
+  const onChange = (snap) => { state = { ...state, db: snap }; persist(); };
+  const db = createDb(snapshot ?? SEED, { onChange });
+  return db.resolveUser(state.member.userId)?.community ? db : createDb(SEED, { onChange });
+}
+let db = openDb(state.db);
+
+function setState(patch) {
+  state = { ...state, ...patch };
+  persist();
+  render();
+}
+
+const logActivity = (text) => [text, ...state.activity].slice(0, 8);
+const building = (id) => BUILDINGS.find((b) => b.id === id);
+const isoDay = (offsetDays) => new Date(Date.now() + offsetDays * 86_400_000).toISOString().slice(0, 10);
+
+/** The signed-in member, joined from the user, portfolio and community tables. */
+function me() {
+  const r = db.resolveUser(state.member.userId);
+  return {
+    ...state.member, ...r,
+    name: `${r.user.firstName} ${r.user.lastName}`,
+    shares: r.user.shares, tier: r.tier.id, home: r.community.id,
+  };
+}
+
+/** Building availability with `units` taken from free homes in the portfolio table. */
+function withLiveUnits(b) {
+  if (b.status !== 'live') return b;
+  const availability = Object.fromEntries(Object.entries(b.availability).map(([tier, slot]) =>
+    [tier, { ...slot, units: db.freeUnits({ communityId: b.id, tier }).length }]));
+  return { ...b, availability };
+}
+
+// ---------- Tabs ----------
+function showTab(name) {
+  document.querySelectorAll('[data-tab]').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
+  document.querySelectorAll('[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== name; });
+  history.replaceState(null, '', `#${name}`);
+}
+
+// ---------- M1 Dashboard ----------
+const kpi = (label, value, sub) => `<div class="card"><p class="label">${esc(label)}</p>
+  <p class="font-display text-3xl mt-1">${esc(value)}</p><p class="text-sm text-stone-500">${esc(sub)}</p></div>`;
+
+const bar = (label, value, max, color) => `
+  <div><div class="flex justify-between text-sm"><span>${esc(label)}</span><span class="font-semibold">${formatUSD(value)}</span></div>
+  <div class="bar-track mt-1"><div class="bar-fill ${color}" style="width:${max ? Math.max(1, (value / max) * 100) : 0}%"></div></div></div>`;
+
+function renderDashboard() {
+  const m = me();
+  const s = memberSummary(m, TIERS);
+  const home = building(m.home);
+  $('#member-name').textContent = m.name;
+  $('#kpis').innerHTML = [
+    kpi('Shares held', `${m.shares} / ${s.tier.shares}`, `${s.ownedPct}% of your ${s.tier.name}`),
+    kpi('Equity value', formatUSD(s.equity), `${m.shares} × $${SHARE_PRICE} per share`),
+    kpi('Current home', home ? home.name : m.community.location, `${m.property.id} · ${formatUSD(s.tier.monthly)}/month`),
+    kpi('Priority points', String(m.points), 'Earned by paying fees and buying shares'),
+  ].join('');
+  $('#profile-row').innerHTML = profileCard(db.resolveUser(m.user.id)) + communityCard(m.community);
+
+  $('#ownership').innerHTML = `
+    <div class="bar-track !h-4"><div class="bar-fill bg-moss" style="width:${Math.min(100, s.ownedPct)}%"></div></div>
+    <div class="mt-3 flex justify-between text-sm"><span>${s.ownedPct}% owned</span><span>${s.remainingShares} shares to go</span></div>
+    <p class="mt-4 text-sm text-stone-600">At your current payment you fully own your ${esc(s.tier.name)} in
+      <strong>${s.yearsToFull} years</strong>. <button class="underline text-moss" data-go="upsize">Pay more or upsize →</button></p>`;
+
+  $('#dash-alloc').innerHTML = portfolioAllocation(s.equity, BUILDINGS)
+    .map((a) => bar(`${a.name} (${a.pct.toFixed(0)}%)`, a.equity, s.equity, 'bg-moss')).join('');
+  $('#activity').innerHTML = state.activity.map((a) => `<li>· ${esc(a)}</li>`).join('');
+}
+
+// ---------- M2 Swap ----------
+const STATUS_VIEW = {
+  matched: ['badge-good', 'Matched', 'A home is open for your dates.'],
+  'matched-by-points': ['badge-good', 'Matched on priority points', 'Several members asked for this home; your points put you first.'],
+  waitlisted: ['badge-warn', 'Contested', ''],
+  'no-units': ['badge-bad', 'No homes free', 'No homes in this tier are free. Try another building or tier.'],
+  'not-open': ['badge-muted', 'Not open yet', 'This location is planned. Vote for it in the co-op vote to bring it sooner.'],
+};
+
+function initSwapForm() {
+  const m = me();
+  $('#swap-building').innerHTML = BUILDINGS.filter((b) => b.id !== m.home).map((b) => `
+    <option value="${b.id}">${esc(b.name)}${b.status === 'live' ? '' : b.status === 'planned' ? ' (planned)' : ' (future city)'}</option>`).join('');
+  $('#swap-tier').innerHTML = TIERS.map((t) => `<option value="${t.id}" ${t.id === m.tier ? 'selected' : ''}>Tier ${t.id} · ${esc(t.name)}</option>`).join('');
+  $('#swap-start').value = isoDay(35);
+  $('#swap-end').value = isoDay(35 + 180);
+  $('#swap-result').innerHTML = '';
+}
+
+function onSwapSubmit(e) {
+  e.preventDefault();
+  const form = new FormData(e.target);
+  const dates = validateSwapDates(form.get('start'), form.get('end'));
+  $('#swap-error').textContent = dates.ok ? '' : dates.error;
+  if (!dates.ok) { $('#swap-result').innerHTML = ''; return; }
+
+  const m = me();
+  const target = withLiveUnits(building(form.get('building')));
+  const tierId = form.get('tier');
+  const result = matchSwap(target, tierId, m.points);
+  const [cls, title, text] = STATUS_VIEW[result.status];
+  const detail = result.status === 'waitlisted'
+    ? `This home needs ${result.cutoffPoints} priority points; you have ${m.points}. You need ${result.pointsNeeded} more, so you're on the waitlist.`
+    : text;
+  const canConfirm = ['matched', 'matched-by-points'].includes(result.status);
+  const tierChange = tierId !== m.tier;
+  const community = db.communities.findById(target.id);
+
+  $('#swap-result').innerHTML = `
+    <div class="grid lg:grid-cols-2 gap-6">
+      <div class="card">
+        <div class="flex items-center gap-3"><span class="badge ${cls}">${esc(title)}</span>
+          <span class="text-sm text-stone-500">${esc(target.name)} · Tier ${esc(tierId)} · ${dates.notice} days' notice</span></div>
+        <p class="mt-3">${esc(detail)}</p>
+        ${canConfirm ? `<p class="mt-2 text-sm text-stone-600">Your ${m.shares} shares (${formatUSD(m.shares * SHARE_PRICE)}) move with you.${tierChange ? ' Changing tier also changes your monthly fee; use Upsize to plan it.' : ''}</p>
+          <button class="btn-primary mt-4" data-confirm-swap="${esc(target.id)}" ${tierChange ? 'disabled title="Same-tier swaps only in this demo"' : ''}>Confirm swap</button>` : ''}
+      </div>
+      ${community ? communityCard(community, { title: 'About this community' }) : ''}
+    </div>`;
+}
+
+function confirmSwap(communityId) {
+  const m = me();
+  const unit = db.freeUnits({ communityId, tier: m.tier })[0];
+  const res = unit ? db.users.update(m.user.id, { propertyId: unit.id }) : { ok: false };
+  if (!res.ok) {
+    $('#swap-result').innerHTML = '<div class="card"><span class="badge badge-bad">Not completed</span><p class="mt-3">That home was just taken. Try again.</p></div>';
+    return;
+  }
+  const target = building(communityId);
+  setState({ activity: logActivity(`Swap confirmed: moving to ${target.name} (${unit.id})`) });
+  initSwapForm();
+  $('#swap-result').innerHTML = `<div class="card"><span class="badge badge-good">Confirmed</span>
+    <p class="mt-3">You're moving to ${esc(target.name)}, home ${esc(unit.id)}. Equity unchanged: ${formatUSD(m.shares * SHARE_PRICE)}.</p></div>`;
+}
+
+// ---------- M3 Upsize ----------
+const upsizeUnit = (m, tierId) =>
+  db.freeUnits({ communityId: m.home, tier: tierId })[0] ?? db.freeUnits({ tier: tierId })[0];
+
+function renderUpsize() {
+  const m = me();
+  const current = getTier(TIERS, m.tier);
+  const larger = TIERS.filter((t) => t.shares > current.shares);
+  if (larger.length === 0) {
+    $('#upsize').innerHTML = `<div class="card">You're in our largest tier (${esc(current.name)}).</div>`;
+    return;
+  }
+  $('#upsize').innerHTML = larger.map((t) => {
+    const u = upsizeOptions(m, TIERS, t.id);
+    const unit = upsizeUnit(m, t.id);
+    const where = unit
+      ? `Free home: <span class="font-mono">${esc(unit.id)}</span> in ${esc(db.communities.findById(unit.communityId).location)}${unit.communityId === m.home ? ' (your community)' : ''}`
+      : `No free Tier ${esc(t.id)} homes right now.`;
+    const dis = unit ? '' : 'disabled';
+    return `
+    <div class="card mb-6">
+      <p class="eyebrow">Tier ${esc(current.id)} → Tier ${esc(t.id)}</p>
+      <h2 class="font-display text-3xl mt-1">You need ${u.sharesNeeded} more shares for Tier ${esc(t.id)}</h2>
+      <p class="text-stone-600 mt-1">${esc(t.name)}, ${esc(t.sqft)} sq ft · ${formatUSD(u.newMonthly)}/month (+${formatUSD(u.monthlyIncrease)})</p>
+      <p class="text-sm mt-2">${where}</p>
+      <div class="mt-6 grid md:grid-cols-2 gap-4">
+        <div class="rounded-2xl border border-stone-200 p-5">
+          <h3 class="font-semibold">Lump sum</h3>
+          <p class="font-display text-3xl mt-2">${formatUSD(u.lumpSum)}</p>
+          <p class="text-sm text-stone-600 mt-1">You'd own ${u.lump.sharesOwned} of ${t.shares} shares and own the home outright in ${u.lump.yearsToFull} years.</p>
+          <button class="btn-primary mt-4" data-upsize="${t.id}" data-mode="lump" ${dis}>Choose lump sum</button>
+        </div>
+        <div class="rounded-2xl border border-stone-200 p-5">
+          <h3 class="font-semibold">Higher monthly payment</h3>
+          <p class="font-display text-3xl mt-2">${formatUSD(u.newMonthly)}<span class="text-base text-stone-500">/mo</span></p>
+          <p class="text-sm text-stone-600 mt-1">No upfront cost. Keep your ${u.monthly.sharesOwned} shares and own the home outright in ${u.monthly.yearsToFull} years.</p>
+          <button class="btn-ghost mt-4" data-upsize="${t.id}" data-mode="monthly" ${dis}>Choose monthly</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function confirmUpsize(tierId, mode) {
+  const m = me();
+  const u = upsizeOptions(m, TIERS, tierId);
+  const unit = upsizeUnit(m, tierId);
+  if (!unit) return;
+  const shares = mode === 'lump' ? u.lump.sharesOwned : u.monthly.sharesOwned;
+  const res = db.users.update(m.user.id, { propertyId: unit.id, shares });
+  if (!res.ok) return;
+  setState({
+    member: { ...state.member, points: m.points + (mode === 'lump' ? u.sharesNeeded : 0) },
+    activity: logActivity(`Upsized to Tier ${tierId}, home ${unit.id} (${mode === 'lump' ? `lump sum ${formatUSD(u.lumpSum)}` : `${formatUSD(u.newMonthly)}/month`})`),
+  });
+  initSwapForm();
+  showTab('dashboard');
+}
+
+// ---------- M4 Vote ----------
+function renderVote() {
+  const tally = { ...MOCK_VOTES };
+  if (state.vote) tally[state.vote] += 1;
+  const total = Object.values(tally).reduce((s, n) => s + n, 0);
+  $('#vote').innerHTML = PROPOSALS.map((p) => {
+    const pct = Math.round((tally[p.id] / total) * 100);
+    const mine = state.vote === p.id;
+    return `<div class="card ${mine ? 'ring-2 ring-moss' : ''}">
+      <div class="flex justify-between gap-4"><div><h2 class="font-semibold">${esc(p.title)}</h2><p class="text-sm text-stone-600">${esc(p.detail)}</p></div>
+      <button class="${mine ? 'btn-primary' : 'btn-ghost'} shrink-0 self-start" data-vote="${p.id}" ${state.vote ? 'disabled' : ''}>${mine ? 'Your vote' : 'Vote'}</button></div>
+      <div class="mt-4 bar-track"><div class="bar-fill bg-moss" style="width:${pct}%"></div></div>
+      <p class="mt-1 text-sm text-stone-500">${tally[p.id]} votes · ${pct}%</p></div>`;
+  }).join('');
+}
+
+// ---------- M5 Guest suite ----------
+function onGuestSubmit(e) {
+  e.preventDefault();
+  const form = new FormData(e.target);
+  const date = form.get('date');
+  const nights = Number(form.get('nights'));
+  const status = $('#guest-status');
+  const home = building(me().home);
+  const error = (msg) => { status.className = 'md:col-span-3 text-sm text-red-700'; status.textContent = msg; };
+  if (!date || date < isoDay(0)) return error('Pick an arrival date from today on.');
+  if (!Number.isInteger(nights) || nights < 1 || nights > 7) return error('Stays are 1–7 nights.');
+  if (!home?.guestSuites) return error('No guest suites in this building.');
+  status.className = 'md:col-span-3 text-sm text-moss font-medium';
+  status.textContent = `Booked: guest suite at ${home.name}, ${nights} night${nights > 1 ? 's' : ''} from ${date}.`;
+  setState({ activity: logActivity(`Booked a guest suite at ${home.name} (${nights} nights)`) });
+}
+
+// ---------- Communities + Data tabs ----------
+function renderDataTabs() {
+  $('#communities').innerHTML = renderCommunities(db, me().home);
+  const t = renderDataTables(db, state.member.userId);
+  $('#tbl-users').innerHTML = t.users;
+  $('#tbl-portfolio').innerHTML = t.portfolio;
+  $('#tbl-communities').innerHTML = t.communities;
+  const select = $('#user-property');
+  const keep = select.value;
+  select.innerHTML = freeUnitOptions(db);
+  if ([...select.options].some((o) => o.value === keep)) select.value = keep;
+}
+
+function onAddUser(e) {
+  e.preventDefault();
+  const form = e.target;
+  const status = $('#user-status');
+  form.querySelectorAll('.field-error').forEach((el) => { el.textContent = ''; });
+  const res = db.users.create(Object.fromEntries(new FormData(form)));
+  if (!res.ok) {
+    Object.entries(res.errors).forEach(([k, msg]) => {
+      const el = form.querySelector(`[data-for="${k}"]`);
+      if (el) el.textContent = msg;
+    });
+    status.className = 'text-sm text-red-700';
+    status.textContent = 'Fix the highlighted fields.';
+    return;
+  }
+  form.reset();
+  status.className = 'text-sm text-moss font-medium';
+  status.textContent = `Added ${res.value.firstName} ${res.value.lastName} (${res.value.id}) to ${res.value.propertyId}.`;
+  setState({ activity: logActivity(`Data: added user ${res.value.id}`) });
+}
+
+function removeUser(id) {
+  if (id === state.member.userId) return;
+  if (db.users.remove(id).ok) setState({ activity: logActivity(`Data: removed user ${id}`) });
+}
+
+// ---------- Wiring ----------
+function render() {
+  renderDashboard();
+  renderUpsize();
+  renderVote();
+  renderDataTabs();
+}
+
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('[data-tab], [data-go], [data-confirm-swap], [data-upsize], [data-vote], [data-remove-user]');
+  if (!t) return;
+  if (t.dataset.tab) showTab(t.dataset.tab);
+  else if (t.dataset.go) showTab(t.dataset.go);
+  else if (t.dataset.confirmSwap) confirmSwap(t.dataset.confirmSwap);
+  else if (t.dataset.upsize) confirmUpsize(t.dataset.upsize, t.dataset.mode);
+  else if (t.dataset.removeUser) removeUser(t.dataset.removeUser);
+  else if (t.dataset.vote && !state.vote) setState({ vote: t.dataset.vote, activity: logActivity('Voted in the co-op ballot') });
+});
+
+$('#swap-form').addEventListener('submit', onSwapSubmit);
+$('#guest-form').addEventListener('submit', onGuestSubmit);
+$('#user-form').addEventListener('submit', onAddUser);
+$('#guest-date').min = isoDay(0);
+$('#reset').addEventListener('click', () => {
+  try { localStorage.removeItem(STORE_KEY); } catch { /* ignore */ }
+  state = initialState();
+  db = openDb(null);
+  initSwapForm();
+  render();
+  showTab('dashboard');
+});
+
+initSwapForm();
+render();
+const startTab = location.hash.slice(1);
+showTab(TABS.includes(startTab) ? startTab : 'dashboard');
