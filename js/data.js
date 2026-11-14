@@ -1,4 +1,4 @@
-// Mock data for the SustainerPrice hackathon demo.
+// Mock data for the CoHome hackathon demo.
 // Pricing values come from the product spec (sections 5 and 11).
 // Anything marked `illustrative` is demo data, not a market figure.
 

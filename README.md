@@ -1,6 +1,6 @@
-# SustainerPrice — hackathon demo
+# CoHome — hackathon demo
 
-A public landing page and a clickable member app for **SustainerPrice** (Flexible Ownership Living). Built from `../SustainerPrice_Product_Spec.pdf`.
+A public landing page and a clickable member app for **CoHome** (Flexible Ownership Living; formerly SustainerPrice). Built from `../SustainerPrice_Product_Spec.pdf`. Infrastructure names (GitHub repo, Amplify app `sustainerprice`, AWS tags) keep the original name.
 
 Plain HTML + Tailwind (Play CDN) + Leaflet. No build step; deploys to Vercel as static files.
 
@@ -44,6 +44,9 @@ index.html, app.html
 css/styles.css          component classes (buttons, cards, chips, bars)
 assets/*.png            original tier renders (Small / Medium / large), not deployed
 assets/web/*.webp       1000px WebP copies used on the tier cards (~75 KB each), deployed
+assets/icon.png         original CoHome logo, not deployed
+assets/web/icon-*, favicon*, apple-touch-icon.png, logo-mark.png   app icons + header logo, deployed
+site.webmanifest        app name, colours and icons for "add to home screen"
 js/data.js              mock data: tiers, buildings, member, stats (edit numbers here)
 js/seed.js              seed rows for the user / portfolio / community tables
 js/schema.js            field validation for the three tables

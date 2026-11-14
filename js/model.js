@@ -1,4 +1,4 @@
-// Pure business logic for SustainerPrice. No DOM access, so it runs in Node tests.
+// Pure business logic for CoHome. No DOM access, so it runs in Node tests.
 import { SHARE_PRICE, MONTHS_TO_OWN } from './data.js';
 
 const round = (n, dp = 1) => Math.round(n * 10 ** dp) / 10 ** dp;

@@ -124,8 +124,8 @@ function updateCalc() {
     : `Fully owned in ${yrs} years`;
 
   $('#out-bars').innerHTML = [
-    bar('SustainerPrice: you pay', r.totalPaid, max, 'bg-stone-400'),
-    bar('SustainerPrice: you own', r.equity, max, 'bg-moss'),
+    bar('CoHome: you pay', r.totalPaid, max, 'bg-stone-400'),
+    bar('CoHome: you own', r.equity, max, 'bg-moss'),
     bar('Renting: you pay', rentPaid, max, 'bg-clay'),
     bar('Renting: you own', 0, max, 'bg-clay'),
   ].join('');
@@ -173,7 +173,7 @@ function initMap() {
 
 function renderNetworkPanels() {
   const rows = [...MARKET_RENT.map((m) => ({ label: m.geo, value: m.monthly, color: 'bg-clay' })),
-    ...TIERS.map((t) => ({ label: `SustainerPrice ${t.name}`, value: t.monthly, color: 'bg-moss' }))];
+    ...TIERS.map((t) => ({ label: `CoHome ${t.name}`, value: t.monthly, color: 'bg-moss' }))];
   const max = Math.max(...rows.map((r) => r.value));
   $('#rent-compare').innerHTML = rows.map((r) => bar(r.label, r.value, max, r.color)).join('');
 
@@ -218,7 +218,7 @@ function initWaitlist() {
       btn.disabled = false;
     }
   });
-  if (!isLiveStorage()) console.info('[SustainerPrice] Waitlist in demo mode. Configure js/config.js to store sign-ups.');
+  if (!isLiveStorage()) console.info('[CoHome] Waitlist in demo mode. Configure js/config.js to store sign-ups.');
 }
 
 renderStatic();

@@ -15,7 +15,7 @@ export AWS_DEFAULT_REGION="$REGION"
 APP_ID=$(aws amplify list-apps --query "apps[?name=='${APP_NAME}'].appId | [0]" --output text)
 if [ "$APP_ID" = "None" ] || [ -z "$APP_ID" ]; then
   APP_ID=$(aws amplify create-app --name "$APP_NAME" --platform WEB \
-    --description "SustainerPrice hackathon demo (static, manual deploy)" \
+    --description "CoHome hackathon demo (static, manual deploy)" \
     --tags project=sustainerprice-demo --query app.appId --output text)
   echo "Created Amplify app $APP_ID"
 fi
@@ -31,7 +31,7 @@ rm -f "$ZIP"
 python -I - "$ZIP" <<'PY'
 import sys, zipfile, pathlib
 out = sys.argv[1]
-files = [pathlib.Path("index.html"), pathlib.Path("app.html")]
+files = [pathlib.Path(p) for p in ("index.html", "app.html", "site.webmanifest")]
 for folder in ("css", "js", "assets/web"):
     files += sorted(p for p in pathlib.Path(folder).rglob("*") if p.is_file())
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
