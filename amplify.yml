@@ -1,0 +1,23 @@
+# AWS Amplify build settings (used when the app is connected to the GitHub repo).
+# Static site: run the unit tests, then publish only the site files from dist/.
+version: 1
+frontend:
+  phases:
+    build:
+      commands:
+        - node --version
+        - node --test tests/model.test.js tests/db.test.js
+        - node scripts/build.mjs
+  artifacts:
+    baseDirectory: dist
+    files:
+      - '**/*'
+  customHeaders:
+    - pattern: '**/*.html'
+      headers:
+        - key: Cache-Control
+          value: no-cache
+    - pattern: '**/*'
+      headers:
+        - key: X-Content-Type-Options
+          value: nosniff
