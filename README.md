@@ -62,7 +62,8 @@ scripts/serve.mjs       local static server
 
 | Rule | Source |
 |---|---|
-| $250 per share; tiers S 200 / M 300 / L 600 shares at $200 / $300 / $600 a month | Spec §5, §11 |
+| $250 per share; tiers S 200 / M 300 / L 600 shares | Spec §5, §11 |
+| Rent is $3 per sq ft per month for every unit (`RENT_PER_SQFT`), charged on `areaSqft` (S 200 / M 300 / L 600 sq ft) → $600 / $900 / $1,800 a month | Product decision, Nov 2026 |
 | Ownership accrues evenly to 100% after 240 months at the base fee | Spec §5 (buy-back rule) |
 | Paying above the base fee buys extra shares at $250 | Spec §9 calculator logic |
 | Swaps need 30–60 days' notice; equity unchanged | Spec §7 |
@@ -112,4 +113,4 @@ To tear down: `aws amplify delete-app --app-id drrwzic15dvyt`.
 
 - Tailwind Play CDN is fine for a demo; for production, compile Tailwind instead.
 - No real auth, payments or share issuance (non-goals for the hackathon).
-- Open spec questions still affect numbers: entry stake, funding the $0 buy-back, real monthly fees vs. ~$1,820 NYC market rent, swap fee.
+- Open spec questions still affect numbers: entry stake, how much of the $3/sq ft rent buys shares vs. covers operations and debt, swap fee.

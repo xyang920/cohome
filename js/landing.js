@@ -1,4 +1,4 @@
-import { TIERS, MARKET_RENT, PROBLEM_STATS, BUILDINGS, SHARE_PRICE } from './data.js';
+import { TIERS, MARKET_RENT, PROBLEM_STATS, BUILDINGS, SHARE_PRICE, RENT_PER_SQFT } from './data.js';
 import { getTier, projectOwnership, portfolioAllocation, validateWaitlist, formatUSD } from './model.js';
 import { saveWaitlistEntry, isLiveStorage } from './waitlist.js';
 import { esc, $, icon, floorPlan } from './ui.js';
@@ -55,7 +55,7 @@ function renderStatic() {
       <dl class="grid grid-cols-3 gap-2 text-center">
         <div><dt class="label">Size</dt><dd class="font-semibold">${esc(t.sqft)} sq ft</dd></div>
         <div><dt class="label">Shares</dt><dd class="font-semibold">${t.shares}</dd></div>
-        <div><dt class="label">Monthly</dt><dd class="font-semibold">${formatUSD(t.monthly)}</dd></div>
+        <div><dt class="label">Monthly</dt><dd class="font-semibold">${formatUSD(t.monthly)}</dd><dd class="text-xs text-stone-500">${t.areaSqft} sq ft × $${RENT_PER_SQFT}</dd></div>
       </dl>
       <ul class="mt-5 space-y-1 text-sm text-stone-600 flex-1">${t.features.map((f) => `<li>· ${esc(f)}</li>`).join('')}</ul>
       <p class="mt-5 text-sm">Fully owned value: <strong>${formatUSD(t.shares * SHARE_PRICE)}</strong></p>
@@ -68,6 +68,9 @@ function renderStatic() {
   $('#faq-list').innerHTML = FAQ.map(([q, a]) => `
     <details class="py-4 group"><summary class="cursor-pointer font-medium list-none flex justify-between">${esc(q)}<span class="text-stone-400 group-open:rotate-45 transition">+</span></summary>
       <p class="mt-2 text-stone-600 text-sm">${esc(a)}</p></details>`).join('');
+
+  const cheapest = Math.min(...TIERS.map((t) => t.monthly));
+  $('#hero-price').textContent = `From ${formatUSD(cheapest)}/month ($${RENT_PER_SQFT}/sq ft) · ownership accrues to 100% over 20 years`;
 
   const live = BUILDINGS.filter((b) => b.status === 'live');
   $('#hero-buildings').innerHTML = live.map((b) => `<div class="rounded-xl bg-white/10 py-3">${esc(b.name)}</div>`).join('');

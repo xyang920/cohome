@@ -4,14 +4,19 @@
 
 export const SHARE_PRICE = 250; // USD per share
 export const MONTHS_TO_OWN = 240; // 20 years of payments => shares fully owned
+export const RENT_PER_SQFT = 3; // USD per square foot per month, same for every unit
+
+// `areaSqft` is the area the rent is charged on (shares map 1:1 to square feet);
+// `sqft` is the size range shown to visitors. Monthly rent = areaSqft × RENT_PER_SQFT.
+const withRent = (tier) => Object.freeze({ ...tier, monthly: tier.areaSqft * RENT_PER_SQFT });
 
 export const TIERS = Object.freeze([
   {
     id: 'S',
     name: 'Private Pod',
     sqft: '195–235',
+    areaSqft: 200,
     shares: 200,
-    monthly: 200,
     audience: 'Single professionals',
     features: ['Fold-away or platform bed', '3-piece acoustic bath', 'Built-in work desk', 'Dry kitchenette'],
   },
@@ -19,8 +24,8 @@ export const TIERS = Object.freeze([
     id: 'M',
     name: 'Flex Suite',
     sqft: '260–300',
+    areaSqft: 300,
     shares: 300,
-    monthly: 300,
     audience: 'A separate living nook, or couples',
     features: ['Separate sleeping alcove', 'Work niche', 'Extra storage', 'Kitchenette + 3-piece bath'],
   },
@@ -28,12 +33,12 @@ export const TIERS = Object.freeze([
     id: 'L',
     name: 'One bedroom + flex',
     sqft: '~600',
+    areaSqft: 600,
     shares: 600,
-    monthly: 600,
     audience: 'Growing households',
     features: ['Separate bedroom', 'Flexible room', 'Full kitchenette', 'Larger storage'],
   },
-]);
+].map(withRent));
 
 // Rent per person per month, derived in the spec from the investor deck (2024 ACS PUMS).
 export const MARKET_RENT = Object.freeze([

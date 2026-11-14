@@ -16,33 +16,33 @@ test('getTier finds a tier and rejects unknown ids', () => {
 });
 
 test('base fee owns the tier outright after 20 years', () => {
-  const r = projectOwnership({ tier: M, monthlyFee: 300, years: 20 });
+  const r = projectOwnership({ tier: M, monthlyFee: 900, years: 20 });
   assert.equal(r.sharesOwned, 300);
   assert.equal(r.equity, 75000);
-  assert.equal(r.totalPaid, 72000);
+  assert.equal(r.totalPaid, 216000);
   assert.equal(r.monthsToFullOwnership, 240);
 });
 
 test('ownership accrues evenly before 20 years', () => {
-  const r = projectOwnership({ tier: M, monthlyFee: 300, years: 10 });
+  const r = projectOwnership({ tier: M, monthlyFee: 900, years: 10 });
   assert.equal(r.sharesOwned, 150);
   assert.equal(r.equity, 37500);
 });
 
 test('paying above the base fee buys extra shares and shortens the path', () => {
-  const r = projectOwnership({ tier: M, monthlyFee: 550, years: 5 });
+  const r = projectOwnership({ tier: M, monthlyFee: 1150, years: 5 });
   // 1.25 accrued + 1 extra (250/250) = 2.25 shares a month
   assert.equal(r.sharesOwned, 135);
   assert.equal(r.monthsToFullOwnership, Math.ceil(300 / 2.25));
 });
 
 test('shares never exceed the tier total', () => {
-  const r = projectOwnership({ tier: M, monthlyFee: 1300, years: 30 });
+  const r = projectOwnership({ tier: M, monthlyFee: 1900, years: 30 });
   assert.equal(r.sharesOwned, 300);
 });
 
 test('appreciation grows equity value, not share count', () => {
-  const r = projectOwnership({ tier: M, monthlyFee: 300, years: 20, appreciation: 0.02 });
+  const r = projectOwnership({ tier: M, monthlyFee: 900, years: 20, appreciation: 0.02 });
   assert.equal(r.sharesOwned, 300);
   assert.ok(Math.abs(r.equity - 75000 * 1.02 ** 20) < 1);
 });
@@ -63,8 +63,8 @@ test('upsize M to L needs 300 more shares', () => {
   const u = upsizeOptions(DEMO_MEMBER, TIERS, 'L');
   assert.equal(u.sharesNeeded, 300);
   assert.equal(u.lumpSum, 75000);
-  assert.equal(u.newMonthly, 600);
-  assert.equal(u.monthlyIncrease, 300);
+  assert.equal(u.newMonthly, 1800);
+  assert.equal(u.monthlyIncrease, 900);
   // lump: owns 384 of 600, accrues 2.5/month => 216/2.5/12 = 7.2 years
   assert.equal(u.lump.yearsToFull, 7.2);
   // monthly only: owns 84 of 600 => 516/2.5/12 = 17.2 years
@@ -118,4 +118,10 @@ test('waitlist validation', () => {
   assert.equal(validateWaitlist({ name: 'Ana', email: 'bad', tier: 'M', deposit: 'yes' }).ok, false);
   assert.equal(validateWaitlist({ name: 'Ana', email: 'ana@example.com', tier: 'Q', deposit: 'yes' }).ok, false);
   assert.equal(validateWaitlist({ name: 'Ana', email: 'ana@example.com', tier: 'M', deposit: 'maybe' }).ok, false);
+});
+
+test('rent is $3 per square foot for every unit', async () => {
+  const { RENT_PER_SQFT } = await import('../js/data.js');
+  assert.equal(RENT_PER_SQFT, 3);
+  assert.deepEqual(TIERS.map((t) => [t.id, t.areaSqft, t.monthly]), [['S', 200, 600], ['M', 300, 900], ['L', 600, 1800]]);
 });
