@@ -78,6 +78,19 @@ Demo mode (default) saves sign-ups to the visitor's browser only. To collect rea
 1. Create a Supabase project and run `supabase/waitlist.sql` in its SQL editor.
 2. Put the project URL and the **anon** key in `js/config.js`. The anon key is public by design; RLS allows inserts only — nobody can read the list with it.
 
+## Deploy (AWS: S3 + CloudFront)
+
+```bash
+aws sso login
+AWS_PROFILE=default bash scripts/deploy-aws.sh
+```
+
+The script is idempotent. The first run creates a private S3 bucket (`sustainerprice-demo-<account>-<region>`, public access blocked) and a CloudFront distribution (comment `sustainerprice-demo`) that alone can read it via origin access control. It serves HTTPS on a `*.cloudfront.net` URL. Later runs upload changed files and invalidate the cache. Only `index.html`, `app.html`, `css/` and `js/` are uploaded.
+
+Current deployment: https://d32yihnocbgnye.cloudfront.net (distribution `E3I2DTS07OC66C`, us-east-1).
+
+To tear down: disable and delete the distribution, then empty and delete the bucket and the `sustainerprice-oac` origin access control.
+
 ## Deploy (Vercel)
 
 `vercel` from this folder, or import the repo in the Vercel dashboard with framework preset **Other** and no build command. The output directory is the project root.
