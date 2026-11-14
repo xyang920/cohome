@@ -91,6 +91,19 @@ Current deployment: https://d32yihnocbgnye.cloudfront.net (distribution `E3I2DTS
 
 To tear down: disable and delete the distribution, then empty and delete the bucket and the `sustainerprice-oac` origin access control.
 
+## Deploy (AWS Amplify Hosting)
+
+```bash
+aws sso login
+AWS_PROFILE=default bash scripts/deploy-amplify.sh
+```
+
+Manual (zip) deployment, with no Git connection. The first run creates the Amplify app `sustainerprice` (tag `project=sustainerprice-demo`) and a `main` production branch. Every run zips `index.html`, `app.html`, `css/` and `js/`, uploads the zip and waits for the job. It also cancels jobs left pending by an interrupted run.
+
+Current deployment: https://main.drrwzic15dvyt.amplifyapp.com (app `drrwzic15dvyt`, us-east-1).
+
+To tear down: `aws amplify delete-app --app-id drrwzic15dvyt`.
+
 ## Deploy (Vercel)
 
 `vercel` from this folder, or import the repo in the Vercel dashboard with framework preset **Other** and no build command. The output directory is the project root.
