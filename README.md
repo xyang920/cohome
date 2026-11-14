@@ -88,7 +88,7 @@ AWS_PROFILE=default bash scripts/deploy-aws.sh
 
 The script is idempotent. The first run creates a private S3 bucket (`sustainerprice-demo-<account>-<region>`, public access blocked) and a CloudFront distribution (comment `sustainerprice-demo`) that alone can read it via origin access control. It serves HTTPS on a `*.cloudfront.net` URL. Later runs upload changed files and invalidate the cache. Only `index.html`, `app.html`, `css/` and `js/` are uploaded.
 
-Current deployment: https://d32yihnocbgnye.cloudfront.net (distribution `E3I2DTS07OC66C`, us-east-1).
+Not currently deployed: the first CloudFront deployment was torn down in Nov 2026 in favour of Amplify. The script still works if you need it again.
 
 To tear down: disable and delete the distribution, then empty and delete the bucket and the `sustainerprice-oac` origin access control.
 
