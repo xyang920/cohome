@@ -1,6 +1,6 @@
 # CoHome — hackathon demo
 
-A public landing page and a clickable member app for **CoHome** (Flexible Ownership Living; formerly SustainerPrice). Built from `../SustainerPrice_Product_Spec.pdf`. Infrastructure names (GitHub repo, Amplify app `sustainerprice`, AWS tags) keep the original name.
+A public landing page and a clickable member app for **CoHome** (Flexible Ownership Living; formerly SustainerPrice). Built from `../SustainerPrice_Product_Spec.pdf`. GitHub repo: `xyang920/cohome` (renamed from `sustainerprice`; the old URL redirects). The Amplify app `sustainerprice` and AWS tags keep the original name so the live URL stays the same.
 
 Plain HTML + Tailwind (Play CDN) + Leaflet. No build step; deploys to Vercel as static files.
 
