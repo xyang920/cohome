@@ -32,6 +32,7 @@
       <button class="tab" role="tab" data-tab="dashboard">Dashboard</button>
       <button class="tab" role="tab" data-tab="swap">Swap home</button>
       <button class="tab" role="tab" data-tab="upsize">Upsize</button>
+      <button class="tab" role="tab" data-tab="sell">Sell shares</button>
       <button class="tab" role="tab" data-tab="vote">Vote</button>
       <button class="tab" role="tab" data-tab="guest">Guest suite</button>
       <button class="tab" role="tab" data-tab="communities">Communities</button>
@@ -75,6 +76,18 @@
       <section data-panel="upsize" role="tabpanel" hidden>
         <h1 class="section-title !mt-0">Grow your space</h1>
         <div id="upsize" class="mt-6"></div>
+      </section>
+
+      <!-- Sell shares -->
+      <section data-panel="sell" role="tabpanel" hidden>
+        <h1 class="section-title !mt-0">Sell shares</h1>
+        <p class="mt-2 text-stone-600">Sell whole shares back to the co-op or to a new member at the current share price. Your home and monthly rent stay the same.</p>
+        <div id="sell-price" class="mt-6"></div>
+        <form id="sell-form" class="card mt-4 grid md:grid-cols-3 gap-4 items-end" novalidate>
+          <label class="block md:col-span-2"><span class="label">Shares to sell</span><input id="sell-shares" name="shares" type="number" min="1" step="1" class="input mt-1"></label>
+          <button class="btn-primary py-2.5" type="submit" id="sell-submit">Sell</button>
+          <div id="sell-quote" class="md:col-span-3 text-sm" role="status"></div>
+        </form>
       </section>
 
       <!-- M4 Governance -->

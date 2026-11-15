@@ -72,6 +72,8 @@ scripts/serve.mjs       local static server
 | 50% of each payment buys shares (`SHARE_SPLIT`), 50% covers running costs and debt. One share costs **$3** (`SHARE_PRICE`). The share half of 20 years of rent on one sq ft is $3 × 50% × 240 = $360 = 120 shares, so the home is fully owned after 20 years | Product decision, Nov 2026 |
 | Paying above the base fee buys extra shares at $3 each | Spec §9 calculator logic |
 | Day-one buyout = shares still owed × $3, no early-payment discount (S $72,000 / M $108,000 / L $216,000); afterwards the member pays only the running-cost half (S $300 / M $450 / L $900 a month) | Product decision, Nov 2026 |
+| Share price for buying and selling = $3 × `SHARE_VALUE_INDEX` (`currentSharePrice()`). The index starts at 1.00 (illustrative) and is reset once a year by appraisal; buyouts, upsizes and equity use the same price, while rent keeps buying shares on the fixed 20-year schedule | Product decision, Nov 2026 |
+| Members sell whole shares back to the co-op or to new members (`sellQuote()`): proceeds = shares × current price, minus a 2% exit fee (`EXIT_FEE_RATE`) within 3 years of joining (`EXIT_FEE_YEARS`). No guaranteed minimum price. Selling keeps the member's home and rent | Product decision, Nov 2026 |
 | Swaps need 30–60 days' notice; equity unchanged | Spec §7 |
 | Contested swaps go to the member with the most priority points | Spec §7 |
 | Upsize tab offers a buyout of the current home, plus lump-sum vs. higher-monthly options for a bigger tier | Spec §7 (M3) |
@@ -120,3 +122,4 @@ To tear down: `aws amplify delete-app --app-id drrwzic15dvyt`.
 - Tailwind Play CDN is fine for a demo; for production, compile Tailwind instead.
 - No real auth, payments or share issuance (non-goals for the hackathon).
 - Open spec questions still affect numbers: entry stake (beyond the day-one buyout), whether $1.50/sq ft really covers running costs and debt, swap fee.
+- Share sales are not yet capped per quarter; a buyback cap with a seller queue would protect the co-op's cash if many members sell at once.

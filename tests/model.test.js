@@ -2,9 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   getTier, projectOwnership, memberSummary, upsizeOptions, buyoutQuote,
-  validateSwapDates, matchSwap, portfolioAllocation, validateWaitlist,
+  validateSwapDates, matchSwap, portfolioAllocation, validateWaitlist, currentSharePrice, sellQuote,
 } from '../js/model.js';
-import { TIERS, BUILDINGS, SHARE_PRICE, SHARE_SPLIT, SHARES_PER_SQFT } from '../js/data.js';
+import { TIERS, BUILDINGS, SHARE_PRICE, SHARE_SPLIT, SHARES_PER_SQFT,
+  SHARE_VALUE_INDEX, EXIT_FEE_RATE, EXIT_FEE_YEARS,
+} from '../js/data.js';
 
 const M = getTier(TIERS, 'M');
 // Same values as user u-001 in js/seed.js (Tier M home, 10,080 shares).
@@ -147,4 +149,48 @@ test('buyout for an existing member only charges the shares still owed', () => {
   assert.equal(q.sharesToBuy, 25920);
   assert.equal(q.cost, 25920 * 3);
   assert.equal(buyoutQuote(M, 36000).cost, 0);
+});
+
+test('share price = $3 × value index; the index starts at 1.00', () => {
+  assert.equal(SHARE_VALUE_INDEX, 1);
+  assert.equal(currentSharePrice(), 3);
+  assert.equal(currentSharePrice(1.1), 3.3);
+  assert.throws(() => currentSharePrice(0), RangeError);
+});
+
+test('buy prices follow the value index so buyers and sellers pay the same price', () => {
+  assert.equal(buyoutQuote(M, 0, currentSharePrice(1.1)).cost, 36000 * 3.3);
+});
+
+test('sell quote: no exit fee after the holding period', () => {
+  const q = sellQuote({ ownedShares: 10080, sharesToSell: 1000, yearsHeld: 4 });
+  assert.equal(q.ok, true);
+  assert.equal(q.pricePerShare, 3);
+  assert.equal(q.gross, 3000);
+  assert.equal(q.exitFee, 0);
+  assert.equal(q.net, 3000);
+  assert.equal(q.sharesLeft, 9080);
+});
+
+test('sell quote: 2% exit fee within 3 years, and the index moves the price', () => {
+  assert.equal(EXIT_FEE_RATE, 0.02);
+  assert.equal(EXIT_FEE_YEARS, 3);
+  const q = sellQuote({ ownedShares: 10080, sharesToSell: 1000, yearsHeld: 2, index: 1.1 });
+  assert.equal(q.gross, 3300);
+  assert.equal(q.feeRate, 0.02);
+  assert.equal(q.exitFee, 66);
+  assert.equal(q.net, 3234);
+});
+
+test('sell quote: defaults to selling every share', () => {
+  const q = sellQuote({ ownedShares: 10080, yearsHeld: 5 });
+  assert.equal(q.sharesToSell, 10080);
+  assert.equal(q.sharesLeft, 0);
+});
+
+test('sell quote rejects bad amounts', () => {
+  assert.equal(sellQuote({ ownedShares: 100, sharesToSell: 0, yearsHeld: 5 }).ok, false);
+  assert.equal(sellQuote({ ownedShares: 100, sharesToSell: 1.5, yearsHeld: 5 }).ok, false);
+  assert.equal(sellQuote({ ownedShares: 100, sharesToSell: 101, yearsHeld: 5 }).ok, false);
+  assert.equal(sellQuote({ ownedShares: 100, sharesToSell: 10, yearsHeld: -1 }).ok, false);
 });

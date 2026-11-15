@@ -11,6 +11,13 @@ export const SHARE_SPLIT = 0.5; // share of each monthly payment that buys share
 export const SHARE_PRICE = 3;
 export const SHARES_PER_SQFT = (RENT_PER_SQFT * SHARE_SPLIT * MONTHS_TO_OWN) / SHARE_PRICE; // 120
 
+// Buy and sell price = SHARE_PRICE × SHARE_VALUE_INDEX, so buyers and sellers always pay the same price.
+// The index starts at 1.00 and is reset once a year from an appraisal of the network's buildings
+// (illustrative: no appraisal yet). Rent keeps buying shares on the fixed 20-year schedule.
+export const SHARE_VALUE_INDEX = 1;
+export const EXIT_FEE_RATE = 0.02; // charged on sales within EXIT_FEE_YEARS of joining, to discourage flipping
+export const EXIT_FEE_YEARS = 3;
+
 // `areaSqft` is the area the rent is charged on; `sqft` is the size range shown to visitors.
 // Monthly rent = areaSqft × RENT_PER_SQFT; shares = areaSqft × SHARES_PER_SQFT.
 const withRent = (tier) => Object.freeze({

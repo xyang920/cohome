@@ -1,16 +1,19 @@
-import { TIERS, BUILDINGS, DEMO_MEMBER, PROPOSALS, SHARE_PRICE, SHARES_PER_SQFT } from './data.js';
+import {
+  TIERS, BUILDINGS, DEMO_MEMBER, PROPOSALS, SHARE_PRICE, SHARES_PER_SQFT,
+  SHARE_VALUE_INDEX, EXIT_FEE_RATE, EXIT_FEE_YEARS,
+} from './data.js';
 import { SEED } from './seed.js';
 import { createDb } from './db.js';
 import {
   getTier, memberSummary, upsizeOptions, validateSwapDates, matchSwap, portfolioAllocation, formatUSD,
-  buyoutQuote, paymentSplit, formatShares,
+  buyoutQuote, paymentSplit, formatShares, currentSharePrice, sellQuote,
 } from './model.js';
 import { profileCard, communityCard, renderCommunities, renderDataTables, freeUnitOptions } from './app-data.js';
 import { esc, $ } from './ui.js';
 
 const STORE_KEY = 'sp-demo-state-v3';
 const MOCK_VOTES = { 'bushwick-2': 41, 'manhattan-les': 57, 'partner-coop': 23 };
-const TABS = ['dashboard', 'swap', 'upsize', 'vote', 'guest', 'communities', 'data'];
+const TABS = ['dashboard', 'swap', 'upsize', 'sell', 'vote', 'guest', 'communities', 'data'];
 
 const initialState = () => ({
   member: { ...DEMO_MEMBER }, vote: null, db: null,
@@ -90,7 +93,7 @@ function renderDashboard() {
   $('#member-name').textContent = m.name;
   $('#kpis').innerHTML = [
     kpi('Shares held', `${formatShares(m.shares)} / ${formatShares(s.tier.shares)}`, `${s.ownedPct}% of your ${s.tier.name}`),
-    kpi('Equity value', formatUSD(s.equity), `${formatShares(m.shares)} × $${SHARE_PRICE} per share`),
+    kpi('Equity value', formatUSD(s.equity), `${formatShares(m.shares)} × $${currentSharePrice().toFixed(2)} per share`),
     kpi('Current home', home ? home.name : m.community.location, `${m.property.id} · ${formatUSD(monthlyDue(s.tier, m.shares))}/month`),
     kpi('Priority points', String(m.points), 'Earned by paying fees and buying shares'),
   ].join('');
@@ -154,7 +157,7 @@ function onSwapSubmit(e) {
         <div class="flex items-center gap-3"><span class="badge ${cls}">${esc(title)}</span>
           <span class="text-sm text-stone-500">${esc(target.name)} · Tier ${esc(tierId)} · ${dates.notice} days' notice</span></div>
         <p class="mt-3">${esc(detail)}</p>
-        ${canConfirm ? `<p class="mt-2 text-sm text-stone-600">Your ${formatShares(m.shares)} shares (${formatUSD(m.shares * SHARE_PRICE)}) move with you.${tierChange ? ' Changing tier also changes your monthly fee; use Upsize to plan it.' : ''}</p>
+        ${canConfirm ? `<p class="mt-2 text-sm text-stone-600">Your ${formatShares(m.shares)} shares (${formatUSD(m.shares * currentSharePrice())}) move with you.${tierChange ? ' Changing tier also changes your monthly fee; use Upsize to plan it.' : ''}</p>
           <button class="btn-primary mt-4" data-confirm-swap="${esc(target.id)}" ${tierChange ? 'disabled title="Same-tier swaps only in this demo"' : ''}>Confirm swap</button>` : ''}
       </div>
       ${community ? communityCard(community, { title: 'About this community' }) : ''}
@@ -173,7 +176,7 @@ function confirmSwap(communityId) {
   setState({ activity: logActivity(`Swap confirmed: moving to ${target.name} (${unit.id})`) });
   initSwapForm();
   $('#swap-result').innerHTML = `<div class="card"><span class="badge badge-good">Confirmed</span>
-    <p class="mt-3">You're moving to ${esc(target.name)}, home ${esc(unit.id)}. Equity unchanged: ${formatUSD(m.shares * SHARE_PRICE)}.</p></div>`;
+    <p class="mt-3">You're moving to ${esc(target.name)}, home ${esc(unit.id)}. Equity unchanged: ${formatUSD(m.shares * currentSharePrice())}.</p></div>`;
 }
 
 // ---------- M3 Upsize ----------
@@ -190,7 +193,7 @@ function buyoutCard(m, tier) {
     <div class="card mb-6">
       <p class="eyebrow">Buy out your ${esc(tier.name)}</p>
       <h2 class="font-display text-3xl mt-1">Own it outright for ${formatUSD(q.cost)}</h2>
-      <p class="text-stone-600 mt-1">${formatShares(q.sharesToBuy)} remaining shares × ${formatUSD(SHARE_PRICE)}, no early-payment discount.
+      <p class="text-stone-600 mt-1">${formatShares(q.sharesToBuy)} remaining shares × $${currentSharePrice().toFixed(2)}, no early-payment discount.
         Your payment drops from ${formatUSD(q.monthlyNow)} to ${formatUSD(q.monthlyAfter)}/month (running costs only).</p>
       <button class="btn-primary mt-4" data-buyout="1">Buy out for ${formatUSD(q.cost)}</button>
     </div>`;
@@ -262,6 +265,55 @@ function confirmUpsize(tierId, mode) {
   });
   initSwapForm();
   showTab('dashboard');
+}
+
+// ---------- Sell shares ----------
+const pctLabel = (rate) => `${rate * 100}%`;
+
+function renderSellPrice() {
+  const m = me();
+  const price = currentSharePrice();
+  const feeApplies = m.yearsPaid < EXIT_FEE_YEARS;
+  const feeNote = feeApplies
+    ? `You joined ${m.yearsPaid} years ago; the fee ends after year ${EXIT_FEE_YEARS}.`
+    : `You joined ${m.yearsPaid} years ago (fee only within ${EXIT_FEE_YEARS} years).`;
+  $('#sell-price').innerHTML = `<div class="grid md:grid-cols-3 gap-4">
+    ${kpi('Share price', `$${price.toFixed(2)}`, `$${SHARE_PRICE} × value index ${SHARE_VALUE_INDEX.toFixed(2)} (illustrative, reset yearly)`)}
+    ${kpi('Shares held', formatShares(m.shares), `Worth ${formatUSD(m.shares * price)}`)}
+    ${kpi('Exit fee', feeApplies ? pctLabel(EXIT_FEE_RATE) : 'None', feeNote)}</div>`;
+  $('#sell-shares').max = String(m.shares);
+  $('#sell-submit').disabled = m.shares === 0;
+  renderSellQuote();
+}
+
+function currentSellQuote() {
+  const m = me();
+  const raw = $('#sell-shares').value;
+  return raw === '' ? null : sellQuote({ ownedShares: m.shares, sharesToSell: Number(raw), yearsHeld: m.yearsPaid });
+}
+
+function renderSellQuote() {
+  const out = $('#sell-quote');
+  const q = currentSellQuote();
+  if (!q || !q.ok) {
+    out.className = `md:col-span-3 text-sm ${q ? 'text-red-700' : 'text-stone-500'}`;
+    out.textContent = q ? q.error : 'Enter how many shares to sell.';
+    return;
+  }
+  const fee = q.exitFee ? ` − ${formatUSD(q.exitFee)} exit fee (${pctLabel(q.feeRate)})` : '';
+  out.className = 'md:col-span-3 text-sm text-stone-600';
+  out.innerHTML = `${formatShares(q.sharesToSell)} × $${q.pricePerShare.toFixed(2)} = ${formatUSD(q.gross)}${fee}.
+    <strong>You receive ${formatUSD(q.net)}</strong> and keep ${formatShares(q.sharesLeft)} shares.`;
+}
+
+function onSellSubmit(e) {
+  e.preventDefault();
+  const q = currentSellQuote();
+  if (!q?.ok) return renderSellQuote();
+  const m = me();
+  if (!db.users.update(m.user.id, { shares: q.sharesLeft }).ok) return;
+  $('#sell-shares').value = '';
+  setState({ activity: logActivity(`Sold ${formatShares(q.sharesToSell)} shares for ${formatUSD(q.net)}`) });
 }
 
 // ---------- M4 Vote ----------
@@ -340,6 +392,7 @@ function removeUser(id) {
 function render() {
   renderDashboard();
   renderUpsize();
+  renderSellPrice();
   renderVote();
   renderDataTabs();
 }
@@ -358,6 +411,8 @@ document.addEventListener('click', (e) => {
 
 $('#swap-form').addEventListener('submit', onSwapSubmit);
 $('#guest-form').addEventListener('submit', onGuestSubmit);
+$('#sell-form').addEventListener('submit', onSellSubmit);
+$('#sell-shares').addEventListener('input', renderSellQuote);
 $('#user-form').addEventListener('submit', onAddUser);
 $('#guest-date').min = isoDay(0);
 $('#reset').addEventListener('click', () => {

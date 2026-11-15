@@ -1,5 +1,7 @@
 // Pure business logic for CoHome. No DOM access, so it runs in Node tests.
-import { SHARE_PRICE, MONTHS_TO_OWN, SHARE_SPLIT } from './data.js';
+import {
+  SHARE_PRICE, MONTHS_TO_OWN, SHARE_SPLIT, SHARE_VALUE_INDEX, EXIT_FEE_RATE, EXIT_FEE_YEARS,
+} from './data.js';
 
 const round = (n, dp = 1) => Math.round(n * 10 ** dp) / 10 ** dp;
 const DAY_MS = 86_400_000;
@@ -9,6 +11,34 @@ export const formatUSD = (n) =>
 
 /** Whole shares with thousands separators, e.g. 36000 -> "36,000". */
 export const formatShares = (n) => Math.floor(n).toLocaleString('en-US');
+
+/** Current price of one share, for buying and selling: $3 × the building value index. */
+export function currentSharePrice(index = SHARE_VALUE_INDEX, base = SHARE_PRICE) {
+  if (!(index > 0)) throw new RangeError('Share value index must be above 0.');
+  return round(base * index, 4);
+}
+
+/**
+ * Quote selling shares back to the co-op or to a new member at the current share price.
+ * Sales within `feeYears` of joining pay an exit fee. There is no guaranteed minimum price.
+ */
+export function sellQuote({
+  ownedShares, sharesToSell = ownedShares, yearsHeld, index = SHARE_VALUE_INDEX,
+  feeRate = EXIT_FEE_RATE, feeYears = EXIT_FEE_YEARS,
+}) {
+  if (!Number.isInteger(sharesToSell) || sharesToSell < 1) return { ok: false, error: 'Sell at least 1 whole share.' };
+  if (sharesToSell > ownedShares) return { ok: false, error: `You own ${formatShares(ownedShares)} shares.` };
+  if (!(yearsHeld >= 0)) return { ok: false, error: 'Years held must be zero or more.' };
+
+  const pricePerShare = currentSharePrice(index);
+  const gross = round(sharesToSell * pricePerShare, 2);
+  const rate = yearsHeld < feeYears ? feeRate : 0;
+  const exitFee = round(gross * rate, 2);
+  return {
+    ok: true, sharesToSell, pricePerShare, gross, feeRate: rate, exitFee,
+    net: round(gross - exitFee, 2), sharesLeft: ownedShares - sharesToSell,
+  };
+}
 
 export function getTier(tiers, id) {
   const tier = tiers.find((t) => t.id === id);
@@ -56,10 +86,10 @@ export const paymentSplit = (tier, split = SHARE_SPLIT) => ({
 });
 
 /**
- * Buy the rest of a home outright at the share price (no discount for paying early).
+ * Buy the rest of a home outright at the current share price (no discount for paying early).
  * After a buyout the member still pays the running-cost part every month.
  */
-export function buyoutQuote(tier, ownedShares = 0, sharePrice = SHARE_PRICE, split = SHARE_SPLIT) {
+export function buyoutQuote(tier, ownedShares = 0, sharePrice = currentSharePrice(), split = SHARE_SPLIT) {
   const sharesToBuy = Math.max(0, tier.shares - ownedShares);
   return {
     sharesToBuy,
@@ -69,7 +99,7 @@ export function buyoutQuote(tier, ownedShares = 0, sharePrice = SHARE_PRICE, spl
   };
 }
 
-export function memberSummary(member, tiers, sharePrice = SHARE_PRICE) {
+export function memberSummary(member, tiers, sharePrice = currentSharePrice()) {
   const tier = getTier(tiers, member.tier);
   const remainingShares = Math.max(0, tier.shares - member.shares);
   return {
@@ -81,7 +111,7 @@ export function memberSummary(member, tiers, sharePrice = SHARE_PRICE) {
   };
 }
 
-export function upsizeOptions(member, tiers, targetId, sharePrice = SHARE_PRICE) {
+export function upsizeOptions(member, tiers, targetId, sharePrice = currentSharePrice()) {
   const current = getTier(tiers, member.tier);
   const target = getTier(tiers, targetId);
   if (target.shares <= current.shares) throw new Error('Upsizing needs a larger tier.');
