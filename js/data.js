@@ -23,6 +23,12 @@ export const EXIT_FEE_YEARS = 3;
 export const POINTS_PER_PAYMENT = 1;
 export const SWAP_POINT_SPEND = 0.5;
 
+// Buyback cap: the co-op buys back at most 2% of all member shares each quarter, so a rush of sales
+// can't drain its cash. Sales over the cap wait in a first-come queue and are paid first next quarter,
+// at that quarter's share price.
+export const BUYBACK_CAP_RATE = 0.02;
+export const BUYBACK_USED_DEMO = 1500; // illustrative: shares other members already sold back this quarter
+
 // `areaSqft` is the area the rent is charged on; `sqft` is the size range shown to visitors.
 // Monthly rent = areaSqft × RENT_PER_SQFT; shares = areaSqft × SHARES_PER_SQFT.
 const withRent = (tier) => Object.freeze({

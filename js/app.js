@@ -1,6 +1,6 @@
 import {
   TIERS, BUILDINGS, DEMO_MEMBER, PROPOSALS, SHARE_PRICE,
-  SHARE_VALUE_INDEX, EXIT_FEE_RATE, EXIT_FEE_YEARS, SWAP_POINT_SPEND,
+  SHARE_VALUE_INDEX, EXIT_FEE_RATE, EXIT_FEE_YEARS, SWAP_POINT_SPEND, BUYBACK_CAP_RATE, BUYBACK_USED_DEMO,
 } from './data.js';
 import { SEED } from './seed.js';
 import { createDb } from './db.js';
@@ -8,23 +8,30 @@ import {
   getTier, memberSummary, upsizeOptions, validateSwapDates, matchSwap, portfolioAllocation, formatUSD,
   buyoutQuote, paymentSplit, formatShares, currentSharePrice, sellQuote,
   monthlyPayment, pointsForShares, pointsAfterSale, swapPointCost,
+  quarterlyBuybackCap, buybackPlan, startQuarter,
 } from './model.js';
 import { profileCard, communityCard, renderCommunities, renderDataTables, freeUnitOptions } from './app-data.js';
 import { esc, $ } from './ui.js';
 
-const STORE_KEY = 'sp-demo-state-v4';
+const STORE_KEY = 'sp-demo-state-v5';
 const MOCK_VOTES = { 'bushwick-2': 41, 'manhattan-les': 57, 'partner-coop': 23 };
 const TABS = ['dashboard', 'swap', 'upsize', 'sell', 'vote', 'guest', 'communities', 'data'];
 
+const seedQuarter = () => ({
+  number: 1,
+  cap: quarterlyBuybackCap(SEED.users.reduce((n, u) => n + u.shares, 0)),
+  used: BUYBACK_USED_DEMO,
+});
+
 const initialState = () => ({
-  member: { ...DEMO_MEMBER }, vote: null, db: null,
+  member: { ...DEMO_MEMBER, queuedShares: 0 }, vote: null, db: null, quarter: seedQuarter(),
   activity: ['Joined the co-op · Tier M Flex Suite', 'Moved into Gowanus'],
 });
 
 function load() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORE_KEY));
-    return saved?.member ? saved : initialState();
+    return saved?.member && saved.quarter ? saved : initialState();
   } catch {
     return initialState();
   }
@@ -278,6 +285,9 @@ function confirmUpsize(tierId, mode) {
 // ---------- Sell shares ----------
 const yearsHeld = (m) => m.monthsPaid / 12;
 const pctLabel = (rate) => `${rate * 100}%`;
+const totalMemberShares = () => db.users.findAll().reduce((s, u) => s + u.shares, 0);
+/** Shares the member can still offer: owned minus those already waiting in the buyback queue. */
+const sellableShares = (m) => Math.max(0, m.shares - (m.queuedShares ?? 0));
 
 function renderSellPrice() {
   const m = me();
@@ -287,20 +297,43 @@ function renderSellPrice() {
   const feeNote = feeApplies
     ? `You joined ${years.toFixed(1)} years ago; the fee ends after year ${EXIT_FEE_YEARS}.`
     : `You joined ${years.toFixed(1)} years ago (fee only within ${EXIT_FEE_YEARS} years).`;
+  const { number, cap, used } = state.quarter;
+  const room = Math.max(0, cap - used);
+  const queued = m.queuedShares ?? 0;
   $('#sell-price').innerHTML = `<div class="grid md:grid-cols-3 gap-4">
     ${kpi('Share price', `$${price.toFixed(2)}`, `$${SHARE_PRICE} × value index ${SHARE_VALUE_INDEX.toFixed(2)} (illustrative, reset yearly)`)}
-    ${kpi('Shares held', formatShares(m.shares), `Worth ${formatUSD(m.shares * price)}`)}
-    ${kpi('Exit fee', feeApplies ? pctLabel(EXIT_FEE_RATE) : 'None', feeNote)}</div>`;
-  $('#sell-shares').max = String(m.shares);
-  $('#sell-submit').disabled = m.shares === 0;
+    ${kpi('Shares held', formatShares(m.shares), `Worth ${formatUSD(m.shares * price)}${queued ? ` · ${formatShares(queued)} queued` : ''}`)}
+    ${kpi('Exit fee', feeApplies ? pctLabel(EXIT_FEE_RATE) : 'None', feeNote)}</div>
+    <div class="card mt-4">
+      <div class="flex justify-between text-sm"><span class="label">Co-op buyback room · quarter ${number}</span>
+        <span class="font-semibold">${formatShares(room)} of ${formatShares(cap)} shares left</span></div>
+      <div class="bar-track mt-2"><div class="bar-fill bg-moss" style="width:${cap ? Math.min(100, (used / cap) * 100) : 100}%"></div></div>
+      <p class="mt-2 text-sm text-stone-600">The co-op buys back at most ${pctLabel(BUYBACK_CAP_RATE)} of all member shares each quarter, so a rush of sales can't drain its cash.
+        Sales over the cap wait in a first-come queue and are paid first next quarter, at that quarter's share price. Other members' sales this quarter are illustrative.</p>
+      ${queued ? `<p class="mt-2 text-sm"><strong>${formatShares(queued)} of your shares are queued</strong> for quarter ${number + 1}. You keep them, and their points, until they're paid.</p>` : ''}
+    </div>`;
+  $('#sell-shares').max = String(sellableShares(m));
+  $('#sell-submit').disabled = sellableShares(m) === 0;
   renderSellQuote();
 }
 
+/** Quote for the typed amount, split into the part paid now and the part queued. */
 function currentSellQuote() {
   const m = me();
   const raw = $('#sell-shares').value;
-  return raw === '' ? null : sellQuote({ ownedShares: m.shares, sharesToSell: Number(raw), yearsHeld: yearsHeld(m) });
+  if (raw === '') return null;
+  const q = sellQuote({ ownedShares: sellableShares(m), sharesToSell: Number(raw), yearsHeld: yearsHeld(m) });
+  if (!q.ok && m.queuedShares && Number(raw) > sellableShares(m) && Number(raw) <= m.shares) {
+    return { ok: false, error: `You can sell up to ${formatShares(sellableShares(m))} shares; ${formatShares(m.queuedShares)} are already queued.` };
+  }
+  if (!q.ok) return q;
+  const plan = buybackPlan({ sharesToSell: q.sharesToSell, cap: state.quarter.cap, used: state.quarter.used });
+  const part = (n) => (n > 0 ? sellQuote({ ownedShares: n, sharesToSell: n, yearsHeld: yearsHeld(m) }) : null);
+  return { ...q, plan, now: part(plan.paidNow), later: part(plan.queued) };
 }
+
+const proceeds = (q) => `${formatShares(q.sharesToSell)} × $${q.pricePerShare.toFixed(2)} = ${formatUSD(q.gross)}${
+  q.exitFee ? ` − ${formatUSD(q.exitFee)} exit fee (${pctLabel(q.feeRate)})` : ''}`;
 
 function renderSellQuote() {
   const out = $('#sell-quote');
@@ -310,11 +343,17 @@ function renderSellQuote() {
     out.textContent = q ? q.error : 'Enter how many shares to sell.';
     return;
   }
-  const fee = q.exitFee ? ` − ${formatUSD(q.exitFee)} exit fee (${pctLabel(q.feeRate)})` : '';
+  const m = me();
+  const lost = q.now ? pointsAfterSale({ points: m.points, ownedShares: m.shares, sharesSold: q.now.sharesToSell }).pointsLost : 0;
+  const nowText = q.now
+    ? `Paid now: ${proceeds(q.now)}. <strong>You receive ${formatUSD(q.now.net)}</strong> and give up ${lost} priority points.`
+    : 'The co-op has no buyback room left this quarter.';
+  const laterText = q.later
+    ? ` <span class="text-clay font-medium">${formatShares(q.later.sharesToSell)} shares go in the queue</span> for quarter ${state.quarter.number + 1},
+      paid at that quarter's price (about ${formatUSD(q.later.net)} at today's price).`
+    : '';
   out.className = 'md:col-span-3 text-sm text-stone-600';
-  out.innerHTML = `${formatShares(q.sharesToSell)} × $${q.pricePerShare.toFixed(2)} = ${formatUSD(q.gross)}${fee}.
-    <strong>You receive ${formatUSD(q.net)}</strong> and keep ${formatShares(q.sharesLeft)} shares.
-    You also give up ${pointsAfterSale({ points: me().points, ownedShares: me().shares, sharesSold: q.sharesToSell }).pointsLost} priority points.`;
+  out.innerHTML = nowText + laterText;
 }
 
 function onSellSubmit(e) {
@@ -322,12 +361,35 @@ function onSellSubmit(e) {
   const q = currentSellQuote();
   if (!q?.ok) return renderSellQuote();
   const m = me();
-  if (!db.users.update(m.user.id, { shares: q.sharesLeft }).ok) return;
-  const pts = pointsAfterSale({ points: m.points, ownedShares: m.shares, sharesSold: q.sharesToSell });
+  const paid = q.plan.paidNow;
+  if (paid > 0 && !db.users.update(m.user.id, { shares: m.shares - paid }).ok) return;
+  const pts = pointsAfterSale({ points: m.points, ownedShares: m.shares, sharesSold: paid });
+  const parts = [
+    q.now && `Sold ${formatShares(paid)} shares for ${formatUSD(q.now.net)} (−${pts.pointsLost} points)`,
+    q.later && `queued ${formatShares(q.plan.queued)} shares for next quarter`,
+  ].filter(Boolean);
   $('#sell-shares').value = '';
   setState({
-    member: { ...state.member, points: pts.points },
-    activity: logActivity(`Sold ${formatShares(q.sharesToSell)} shares for ${formatUSD(q.net)} (−${pts.pointsLost} points)`),
+    member: { ...state.member, points: pts.points, queuedShares: (m.queuedShares ?? 0) + q.plan.queued },
+    quarter: { ...state.quarter, used: state.quarter.used + paid },
+    activity: logActivity(parts.join('; ')),
+  });
+}
+
+/** Demo control: open the next quarter, reset the cap and pay the member's queued shares first. */
+function startNextQuarter() {
+  const m = me();
+  const queued = m.queuedShares ?? 0;
+  const next = startQuarter({ totalShares: totalMemberShares(), queued });
+  const paid = next.paidFromQueue;
+  if (paid > 0 && !db.users.update(m.user.id, { shares: m.shares - paid }).ok) return;
+  const pts = pointsAfterSale({ points: m.points, ownedShares: m.shares, sharesSold: paid });
+  const q = paid > 0 ? sellQuote({ ownedShares: paid, sharesToSell: paid, yearsHeld: yearsHeld(m) }) : null;
+  setState({
+    member: { ...state.member, points: pts.points, queuedShares: next.stillQueued },
+    quarter: { number: state.quarter.number + 1, cap: next.cap, used: next.used },
+    activity: logActivity(`Quarter ${state.quarter.number + 1} opened (cap ${formatShares(next.cap)} shares)${
+      q ? `; queue paid ${formatShares(paid)} shares for ${formatUSD(q.net)} (−${pts.pointsLost} points)` : ''}`),
   });
 }
 
@@ -441,6 +503,7 @@ $('#swap-form').addEventListener('submit', onSwapSubmit);
 $('#guest-form').addEventListener('submit', onGuestSubmit);
 $('#sell-form').addEventListener('submit', onSellSubmit);
 $('#sell-shares').addEventListener('input', renderSellQuote);
+$('#next-quarter').addEventListener('click', startNextQuarter);
 $('#user-form').addEventListener('submit', onAddUser);
 $('#guest-date').min = isoDay(0);
 $('#reset').addEventListener('click', () => {

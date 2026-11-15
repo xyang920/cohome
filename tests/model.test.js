@@ -4,9 +4,11 @@ import {
   getTier, projectOwnership, memberSummary, upsizeOptions, buyoutQuote,
   validateSwapDates, matchSwap, portfolioAllocation, validateWaitlist, currentSharePrice, sellQuote,
   monthlyPayment, pointsForShares, pointsAfterSale, swapPointCost,
+  quarterlyBuybackCap, buybackPlan, startQuarter,
 } from '../js/model.js';
 import { TIERS, BUILDINGS, SHARE_PRICE, SHARE_SPLIT, SHARES_PER_SQFT,
   SHARE_VALUE_INDEX, EXIT_FEE_RATE, EXIT_FEE_YEARS, POINTS_PER_PAYMENT, SWAP_POINT_SPEND,
+  BUYBACK_CAP_RATE,
 } from '../js/data.js';
 
 const M = getTier(TIERS, 'M');
@@ -231,4 +233,26 @@ test('points: winning a contested swap spends half your points; free matches cos
   assert.equal(swapPointCost({ status: 'matched-by-points' }, 151), 76);
   assert.equal(swapPointCost({ status: 'matched' }, 151), 0);
   assert.equal(swapPointCost({ status: 'waitlisted' }, 151), 0);
+});
+
+// ---------- Buyback cap ----------
+test('buyback cap is 2% of all shares per quarter, rounded down', () => {
+  assert.equal(BUYBACK_CAP_RATE, 0.02);
+  assert.equal(quarterlyBuybackCap(110280), 2205);
+  assert.equal(quarterlyBuybackCap(0), 0);
+});
+
+test('buyback plan pays what fits under the cap and queues the rest', () => {
+  assert.deepEqual(buybackPlan({ sharesToSell: 1000, cap: 2205, used: 1500 }), { room: 705, paidNow: 705, queued: 295 });
+  assert.deepEqual(buybackPlan({ sharesToSell: 500, cap: 2205, used: 1500 }), { room: 705, paidNow: 500, queued: 0 });
+  assert.deepEqual(buybackPlan({ sharesToSell: 100, cap: 2205, used: 2205 }), { room: 0, paidNow: 0, queued: 100 });
+});
+
+test('a new quarter resets the cap and pays the queue first', () => {
+  const q = startQuarter({ totalShares: 110280, queued: 295 });
+  assert.deepEqual(q, { cap: 2205, used: 295, paidFromQueue: 295, stillQueued: 0 });
+  const big = startQuarter({ totalShares: 110280, queued: 3000 });
+  assert.equal(big.paidFromQueue, 2205);
+  assert.equal(big.stillQueued, 795);
+  assert.equal(big.used, 2205);
 });

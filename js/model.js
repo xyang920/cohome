@@ -1,7 +1,7 @@
 // Pure business logic for CoHome. No DOM access, so it runs in Node tests.
 import {
   SHARE_PRICE, MONTHS_TO_OWN, SHARE_SPLIT, SHARE_VALUE_INDEX, EXIT_FEE_RATE, EXIT_FEE_YEARS,
-  SHARES_PER_SQFT, POINTS_PER_PAYMENT, SWAP_POINT_SPEND,
+  SHARES_PER_SQFT, POINTS_PER_PAYMENT, SWAP_POINT_SPEND, BUYBACK_CAP_RATE,
 } from './data.js';
 
 const round = (n, dp = 1) => Math.round(n * 10 ** dp) / 10 ** dp;
@@ -192,6 +192,25 @@ export function pointsAfterSale({ points, ownedShares, sharesSold }) {
 /** Winning a contested swap on points spends a share of them; uncontested matches are free. */
 export const swapPointCost = (result, points, spend = SWAP_POINT_SPEND) =>
   (result?.status === 'matched-by-points' ? Math.ceil(points * spend) : 0);
+
+// ---------- Buyback cap ----------
+
+/** Most shares the co-op buys back in a quarter: a share of all member shares, rounded down. */
+export const quarterlyBuybackCap = (totalShares, rate = BUYBACK_CAP_RATE) => Math.floor(Math.max(0, totalShares) * rate);
+
+/** Split a sale into the part paid now (room left under the cap) and the part queued for next quarter. */
+export function buybackPlan({ sharesToSell, cap, used }) {
+  const room = Math.max(0, cap - used);
+  const paidNow = Math.min(sharesToSell, room);
+  return { room, paidNow, queued: sharesToSell - paidNow };
+}
+
+/** Open a new quarter: set the cap from current shares and pay the queue first. */
+export function startQuarter({ totalShares, queued = 0, rate = BUYBACK_CAP_RATE }) {
+  const cap = quarterlyBuybackCap(totalShares, rate);
+  const { paidNow, queued: stillQueued } = buybackPlan({ sharesToSell: queued, cap, used: 0 });
+  return { cap, used: paidNow, paidFromQueue: paidNow, stillQueued };
+}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
