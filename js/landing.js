@@ -1,5 +1,5 @@
 import { TIERS, MARKET_RENT, PROBLEM_STATS, BUILDINGS, SHARE_PRICE, RENT_PER_SQFT, SHARE_SPLIT, SHARES_PER_SQFT,
-  EXIT_FEE_RATE, EXIT_FEE_YEARS,
+  EXIT_FEE_RATE, EXIT_FEE_YEARS, POINTS_PER_PAYMENT, SWAP_POINT_SPEND,
 } from './data.js';
 import {
   getTier, projectOwnership, portfolioAllocation, validateWaitlist, formatUSD, buyoutQuote, paymentSplit, formatShares,
@@ -28,7 +28,7 @@ const FAQ = [
   ['How does ownership build up?', `Half of every monthly payment buys shares at ${formatUSD(SHARE_PRICE)} each; the other half covers running costs, maintenance and debt. At your tier’s base payment you own your home outright after 20 years. Paying more buys extra shares and gets you there sooner.`],
   ['Can I buy my home outright on day one?', `Yes. A buyout costs your tier’s shares × ${formatUSD(SHARE_PRICE)}, with no early-payment discount: ${TIERS.map((t) => `${t.name} ${formatUSD(t.shares * SHARE_PRICE)}`).join(', ')}. You then pay only the running-cost half each month.`],
   ['What happens when I move?', 'Request a swap with 30–60 days’ notice. If several members want the same home, priority points decide. Your shares don’t change.'],
-  ['How do I earn priority points?', 'By paying your monthly fee and by buying extra shares.'],
+  ['How do priority points work?', `They decide who gets a home when several members want it. Earn ${POINTS_PER_PAYMENT} point for every monthly payment and 1 point for every ${SHARES_PER_SQFT} extra shares you buy (one square foot’s worth). Selling shares gives up the same fraction of your points. Winning a contested swap spends ${SWAP_POINT_SPEND * 100}% of your points, so priority rotates between members; uncontested swaps are free.`],
   ['Can I sell?', `Yes. Sell any number of whole shares back to the co-op or to new members at the current share price: ${formatUSD(SHARE_PRICE)} × a building value index that starts at 1.00 and is reset once a year by appraisal, so it can rise or fall. New members buy at the same price. Sales within ${EXIT_FEE_YEARS} years of joining pay a ${EXIT_FEE_RATE * 100}% exit fee. There is no guaranteed minimum price.`],
   ['Is this an investment offer?', 'No. This is a hackathon demo; prices and terms are placeholders.'],
 ];

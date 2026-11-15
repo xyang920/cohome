@@ -1,6 +1,7 @@
 // Pure business logic for CoHome. No DOM access, so it runs in Node tests.
 import {
   SHARE_PRICE, MONTHS_TO_OWN, SHARE_SPLIT, SHARE_VALUE_INDEX, EXIT_FEE_RATE, EXIT_FEE_YEARS,
+  SHARES_PER_SQFT, POINTS_PER_PAYMENT, SWAP_POINT_SPEND,
 } from './data.js';
 
 const round = (n, dp = 1) => Math.round(n * 10 ** dp) / 10 ** dp;
@@ -170,6 +171,27 @@ export function portfolioAllocation(equity, buildings) {
     equity: (equity * b.valueIndex) / total,
   }));
 }
+
+// ---------- Priority points ----------
+
+/** One monthly rent payment: buys the base shares (capped at the tier total) and earns a point. */
+export function monthlyPayment(tier, ownedShares, monthsToOwn = MONTHS_TO_OWN) {
+  const sharesAfter = Math.min(tier.shares, ownedShares + baseAccrual(tier, monthsToOwn));
+  return { sharesAfter, sharesBought: sharesAfter - ownedShares, pointsEarned: POINTS_PER_PAYMENT };
+}
+
+/** Points for buying extra shares (buyout, lump-sum upsize): 1 per square foot's worth, rounded down. */
+export const pointsForShares = (shares, perPoint = SHARES_PER_SQFT) => Math.floor(Math.max(0, shares) / perPoint);
+
+/** Selling a fraction of your shares removes the same fraction of your points (rounded up). */
+export function pointsAfterSale({ points, ownedShares, sharesSold }) {
+  const pointsLost = ownedShares > 0 ? Math.min(points, Math.ceil((points * sharesSold) / ownedShares)) : 0;
+  return { pointsLost, points: points - pointsLost };
+}
+
+/** Winning a contested swap on points spends a share of them; uncontested matches are free. */
+export const swapPointCost = (result, points, spend = SWAP_POINT_SPEND) =>
+  (result?.status === 'matched-by-points' ? Math.ceil(points * spend) : 0);
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 

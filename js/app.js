@@ -1,17 +1,18 @@
 import {
-  TIERS, BUILDINGS, DEMO_MEMBER, PROPOSALS, SHARE_PRICE, SHARES_PER_SQFT,
-  SHARE_VALUE_INDEX, EXIT_FEE_RATE, EXIT_FEE_YEARS,
+  TIERS, BUILDINGS, DEMO_MEMBER, PROPOSALS, SHARE_PRICE,
+  SHARE_VALUE_INDEX, EXIT_FEE_RATE, EXIT_FEE_YEARS, SWAP_POINT_SPEND,
 } from './data.js';
 import { SEED } from './seed.js';
 import { createDb } from './db.js';
 import {
   getTier, memberSummary, upsizeOptions, validateSwapDates, matchSwap, portfolioAllocation, formatUSD,
   buyoutQuote, paymentSplit, formatShares, currentSharePrice, sellQuote,
+  monthlyPayment, pointsForShares, pointsAfterSale, swapPointCost,
 } from './model.js';
 import { profileCard, communityCard, renderCommunities, renderDataTables, freeUnitOptions } from './app-data.js';
 import { esc, $ } from './ui.js';
 
-const STORE_KEY = 'sp-demo-state-v3';
+const STORE_KEY = 'sp-demo-state-v4';
 const MOCK_VOTES = { 'bushwick-2': 41, 'manhattan-les': 57, 'partner-coop': 23 };
 const TABS = ['dashboard', 'swap', 'upsize', 'sell', 'vote', 'guest', 'communities', 'data'];
 
@@ -95,7 +96,7 @@ function renderDashboard() {
     kpi('Shares held', `${formatShares(m.shares)} / ${formatShares(s.tier.shares)}`, `${s.ownedPct}% of your ${s.tier.name}`),
     kpi('Equity value', formatUSD(s.equity), `${formatShares(m.shares)} × $${currentSharePrice().toFixed(2)} per share`),
     kpi('Current home', home ? home.name : m.community.location, `${m.property.id} · ${formatUSD(monthlyDue(s.tier, m.shares))}/month`),
-    kpi('Priority points', String(m.points), 'Earned by paying fees and buying shares'),
+    kpi('Priority points', String(m.points), `${m.monthsPaid} monthly payments made · decide contested swaps`),
   ].join('');
   $('#profile-row').innerHTML = profileCard(db.resolveUser(m.user.id)) + communityCard(m.community);
 
@@ -106,7 +107,8 @@ function renderDashboard() {
     ? `<p class="mt-4 text-sm text-stone-600">You own your ${esc(s.tier.name)} outright. You pay ${formatUSD(paymentSplit(s.tier).toRunningCosts)}/month for running costs.</p>`
     : `<p class="mt-4 text-sm text-stone-600">Of your ${formatUSD(s.tier.monthly)} payment, ${formatUSD(paymentSplit(s.tier).toShares)} buys shares. You fully own your ${esc(s.tier.name)} in
       <strong>${s.yearsToFull} years</strong>, or buy it out now for <strong>${formatUSD(buyoutQuote(s.tier, m.shares).cost)}</strong>.
-      <button class="underline text-moss" data-go="upsize">Buy out or upsize →</button></p>`}`;
+      <button class="underline text-moss" data-go="upsize">Buy out or upsize →</button></p>`}
+    <button class="btn-ghost mt-4" data-pay="1">Pay this month's rent (${formatUSD(monthlyDue(s.tier, m.shares))}, +1 point)</button>`;
 
   $('#dash-alloc').innerHTML = portfolioAllocation(s.equity, BUILDINGS)
     .map((a) => bar(`${a.name} (${a.pct.toFixed(0)}%)`, a.equity, s.equity, 'bg-moss')).join('');
@@ -144,9 +146,10 @@ function onSwapSubmit(e) {
   const tierId = form.get('tier');
   const result = matchSwap(target, tierId, m.points);
   const [cls, title, text] = STATUS_VIEW[result.status];
+  const cost = swapPointCost(result, m.points);
   const detail = result.status === 'waitlisted'
     ? `This home needs ${result.cutoffPoints} priority points; you have ${m.points}. You need ${result.pointsNeeded} more, so you're on the waitlist.`
-    : text;
+    : cost ? `${text} Confirming spends ${cost} of your ${m.points} points (${SWAP_POINT_SPEND * 100}%).` : text;
   const canConfirm = ['matched', 'matched-by-points'].includes(result.status);
   const tierChange = tierId !== m.tier;
   const community = db.communities.findById(target.id);
@@ -166,6 +169,8 @@ function onSwapSubmit(e) {
 
 function confirmSwap(communityId) {
   const m = me();
+  // Price the swap before taking the home: taking it changes the free-home count.
+  const cost = swapPointCost(matchSwap(withLiveUnits(building(communityId)), m.tier, m.points), m.points);
   const unit = db.freeUnits({ communityId, tier: m.tier })[0];
   const res = unit ? db.users.update(m.user.id, { propertyId: unit.id }) : { ok: false };
   if (!res.ok) {
@@ -173,7 +178,10 @@ function confirmSwap(communityId) {
     return;
   }
   const target = building(communityId);
-  setState({ activity: logActivity(`Swap confirmed: moving to ${target.name} (${unit.id})`) });
+  setState({
+    member: { ...state.member, points: m.points - cost },
+    activity: logActivity(`Swap confirmed: moving to ${target.name} (${unit.id})${cost ? `, spent ${cost} points` : ''}`),
+  });
   initSwapForm();
   $('#swap-result').innerHTML = `<div class="card"><span class="badge badge-good">Confirmed</span>
     <p class="mt-3">You're moving to ${esc(target.name)}, home ${esc(unit.id)}. Equity unchanged: ${formatUSD(m.shares * currentSharePrice())}.</p></div>`;
@@ -245,7 +253,7 @@ function confirmBuyout() {
   if (q.sharesToBuy === 0) return;
   if (!db.users.update(m.user.id, { shares: tier.shares }).ok) return;
   setState({
-    member: { ...state.member, points: m.points + Math.round(q.sharesToBuy / SHARES_PER_SQFT) },
+    member: { ...state.member, points: m.points + pointsForShares(q.sharesToBuy) },
     activity: logActivity(`Bought out ${m.property.id} for ${formatUSD(q.cost)}; now ${formatUSD(q.monthlyAfter)}/month`),
   });
   showTab('dashboard');
@@ -260,7 +268,7 @@ function confirmUpsize(tierId, mode) {
   const res = db.users.update(m.user.id, { propertyId: unit.id, shares });
   if (!res.ok) return;
   setState({
-    member: { ...state.member, points: m.points + (mode === 'lump' ? Math.round(u.sharesNeeded / SHARES_PER_SQFT) : 0) },
+    member: { ...state.member, points: m.points + (mode === 'lump' ? pointsForShares(u.sharesNeeded) : 0) },
     activity: logActivity(`Upsized to Tier ${tierId}, home ${unit.id} (${mode === 'lump' ? `lump sum ${formatUSD(u.lumpSum)}` : `${formatUSD(u.newMonthly)}/month`})`),
   });
   initSwapForm();
@@ -268,15 +276,17 @@ function confirmUpsize(tierId, mode) {
 }
 
 // ---------- Sell shares ----------
+const yearsHeld = (m) => m.monthsPaid / 12;
 const pctLabel = (rate) => `${rate * 100}%`;
 
 function renderSellPrice() {
   const m = me();
   const price = currentSharePrice();
-  const feeApplies = m.yearsPaid < EXIT_FEE_YEARS;
+  const years = yearsHeld(m);
+  const feeApplies = years < EXIT_FEE_YEARS;
   const feeNote = feeApplies
-    ? `You joined ${m.yearsPaid} years ago; the fee ends after year ${EXIT_FEE_YEARS}.`
-    : `You joined ${m.yearsPaid} years ago (fee only within ${EXIT_FEE_YEARS} years).`;
+    ? `You joined ${years.toFixed(1)} years ago; the fee ends after year ${EXIT_FEE_YEARS}.`
+    : `You joined ${years.toFixed(1)} years ago (fee only within ${EXIT_FEE_YEARS} years).`;
   $('#sell-price').innerHTML = `<div class="grid md:grid-cols-3 gap-4">
     ${kpi('Share price', `$${price.toFixed(2)}`, `$${SHARE_PRICE} × value index ${SHARE_VALUE_INDEX.toFixed(2)} (illustrative, reset yearly)`)}
     ${kpi('Shares held', formatShares(m.shares), `Worth ${formatUSD(m.shares * price)}`)}
@@ -289,7 +299,7 @@ function renderSellPrice() {
 function currentSellQuote() {
   const m = me();
   const raw = $('#sell-shares').value;
-  return raw === '' ? null : sellQuote({ ownedShares: m.shares, sharesToSell: Number(raw), yearsHeld: m.yearsPaid });
+  return raw === '' ? null : sellQuote({ ownedShares: m.shares, sharesToSell: Number(raw), yearsHeld: yearsHeld(m) });
 }
 
 function renderSellQuote() {
@@ -303,7 +313,8 @@ function renderSellQuote() {
   const fee = q.exitFee ? ` − ${formatUSD(q.exitFee)} exit fee (${pctLabel(q.feeRate)})` : '';
   out.className = 'md:col-span-3 text-sm text-stone-600';
   out.innerHTML = `${formatShares(q.sharesToSell)} × $${q.pricePerShare.toFixed(2)} = ${formatUSD(q.gross)}${fee}.
-    <strong>You receive ${formatUSD(q.net)}</strong> and keep ${formatShares(q.sharesLeft)} shares.`;
+    <strong>You receive ${formatUSD(q.net)}</strong> and keep ${formatShares(q.sharesLeft)} shares.
+    You also give up ${pointsAfterSale({ points: me().points, ownedShares: me().shares, sharesSold: q.sharesToSell }).pointsLost} priority points.`;
 }
 
 function onSellSubmit(e) {
@@ -312,8 +323,24 @@ function onSellSubmit(e) {
   if (!q?.ok) return renderSellQuote();
   const m = me();
   if (!db.users.update(m.user.id, { shares: q.sharesLeft }).ok) return;
+  const pts = pointsAfterSale({ points: m.points, ownedShares: m.shares, sharesSold: q.sharesToSell });
   $('#sell-shares').value = '';
-  setState({ activity: logActivity(`Sold ${formatShares(q.sharesToSell)} shares for ${formatUSD(q.net)}`) });
+  setState({
+    member: { ...state.member, points: pts.points },
+    activity: logActivity(`Sold ${formatShares(q.sharesToSell)} shares for ${formatUSD(q.net)} (−${pts.pointsLost} points)`),
+  });
+}
+
+// ---------- Monthly payment ----------
+function payRent() {
+  const m = me();
+  const tier = getTier(TIERS, m.tier);
+  const p = monthlyPayment(tier, m.shares);
+  if (!db.users.update(m.user.id, { shares: p.sharesAfter }).ok) return;
+  setState({
+    member: { ...state.member, points: m.points + p.pointsEarned, monthsPaid: m.monthsPaid + 1 },
+    activity: logActivity(`Paid ${formatUSD(monthlyDue(tier, m.shares))} rent: +${formatShares(p.sharesBought)} shares, +${p.pointsEarned} point`),
+  });
 }
 
 // ---------- M4 Vote ----------
@@ -398,13 +425,14 @@ function render() {
 }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-tab], [data-go], [data-confirm-swap], [data-upsize], [data-buyout], [data-vote], [data-remove-user]');
+  const t = e.target.closest('[data-tab], [data-go], [data-confirm-swap], [data-upsize], [data-buyout], [data-pay], [data-vote], [data-remove-user]');
   if (!t) return;
   if (t.dataset.tab) showTab(t.dataset.tab);
   else if (t.dataset.go) showTab(t.dataset.go);
   else if (t.dataset.confirmSwap) confirmSwap(t.dataset.confirmSwap);
   else if (t.dataset.upsize) confirmUpsize(t.dataset.upsize, t.dataset.mode);
   else if (t.dataset.buyout) confirmBuyout();
+  else if (t.dataset.pay) payRent();
   else if (t.dataset.removeUser) removeUser(t.dataset.removeUser);
   else if (t.dataset.vote && !state.vote) setState({ vote: t.dataset.vote, activity: logActivity('Voted in the co-op ballot') });
 });

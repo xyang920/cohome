@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import {
   getTier, projectOwnership, memberSummary, upsizeOptions, buyoutQuote,
   validateSwapDates, matchSwap, portfolioAllocation, validateWaitlist, currentSharePrice, sellQuote,
+  monthlyPayment, pointsForShares, pointsAfterSale, swapPointCost,
 } from '../js/model.js';
 import { TIERS, BUILDINGS, SHARE_PRICE, SHARE_SPLIT, SHARES_PER_SQFT,
-  SHARE_VALUE_INDEX, EXIT_FEE_RATE, EXIT_FEE_YEARS,
+  SHARE_VALUE_INDEX, EXIT_FEE_RATE, EXIT_FEE_YEARS, POINTS_PER_PAYMENT, SWAP_POINT_SPEND,
 } from '../js/data.js';
 
 const M = getTier(TIERS, 'M');
@@ -193,4 +194,41 @@ test('sell quote rejects bad amounts', () => {
   assert.equal(sellQuote({ ownedShares: 100, sharesToSell: 1.5, yearsHeld: 5 }).ok, false);
   assert.equal(sellQuote({ ownedShares: 100, sharesToSell: 101, yearsHeld: 5 }).ok, false);
   assert.equal(sellQuote({ ownedShares: 100, sharesToSell: 10, yearsHeld: -1 }).ok, false);
+});
+
+// ---------- Priority points ----------
+test('points: 1 per month of rent paid, and the payment buys the base shares', () => {
+  assert.equal(POINTS_PER_PAYMENT, 1);
+  const p = monthlyPayment(M, 10080);
+  assert.equal(p.sharesBought, 150);
+  assert.equal(p.sharesAfter, 10230);
+  assert.equal(p.pointsEarned, 1);
+});
+
+test('points: a fully owned home still earns the monthly point but buys no shares', () => {
+  const p = monthlyPayment(M, 36000);
+  assert.equal(p.sharesBought, 0);
+  assert.equal(p.sharesAfter, 36000);
+  assert.equal(p.pointsEarned, 1);
+});
+
+test('points: 1 per 120 extra shares bought (1 per sq ft), rounded down', () => {
+  assert.equal(pointsForShares(25920), 216);
+  assert.equal(pointsForShares(119), 0);
+  assert.equal(pointsForShares(0), 0);
+});
+
+test('points: selling shares removes points in proportion', () => {
+  const r = pointsAfterSale({ points: 120, ownedShares: 10080, sharesSold: 2520 }); // a quarter
+  assert.equal(r.pointsLost, 30);
+  assert.equal(r.points, 90);
+  assert.equal(pointsAfterSale({ points: 120, ownedShares: 10080, sharesSold: 10080 }).points, 0);
+  assert.equal(pointsAfterSale({ points: 120, ownedShares: 10080, sharesSold: 1 }).pointsLost, 1); // rounds up
+});
+
+test('points: winning a contested swap spends half your points; free matches cost nothing', () => {
+  assert.equal(SWAP_POINT_SPEND, 0.5);
+  assert.equal(swapPointCost({ status: 'matched-by-points' }, 151), 76);
+  assert.equal(swapPointCost({ status: 'matched' }, 151), 0);
+  assert.equal(swapPointCost({ status: 'waitlisted' }, 151), 0);
 });

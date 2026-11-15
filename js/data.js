@@ -18,6 +18,11 @@ export const SHARE_VALUE_INDEX = 1;
 export const EXIT_FEE_RATE = 0.02; // charged on sales within EXIT_FEE_YEARS of joining, to discourage flipping
 export const EXIT_FEE_YEARS = 3;
 
+// Priority points decide contested swaps. Earn 1 per monthly payment and 1 per SHARES_PER_SQFT extra
+// shares bought; lose them in proportion when selling shares; winning a contested swap spends half.
+export const POINTS_PER_PAYMENT = 1;
+export const SWAP_POINT_SPEND = 0.5;
+
 // `areaSqft` is the area the rent is charged on; `sqft` is the size range shown to visitors.
 // Monthly rent = areaSqft × RENT_PER_SQFT; shares = areaSqft × SHARES_PER_SQFT.
 const withRent = (tier) => Object.freeze({
@@ -104,10 +109,11 @@ export const BUILDINGS = Object.freeze([
 ]);
 
 // App-only member fields. Name, shares, home and tier come from the user database (js/seed.js, u-001).
+// 120 points = 48 monthly payments + 72 from extra shares bought earlier (8,640 shares).
 export const DEMO_MEMBER = Object.freeze({
   userId: 'u-001',
   points: 120,
-  yearsPaid: 4,
+  monthsPaid: 48,
 });
 
 export const PROPOSALS = Object.freeze([

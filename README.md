@@ -75,7 +75,8 @@ scripts/serve.mjs       local static server
 | Share price for buying and selling = $3 × `SHARE_VALUE_INDEX` (`currentSharePrice()`). The index starts at 1.00 (illustrative) and is reset once a year by appraisal; buyouts, upsizes and equity use the same price, while rent keeps buying shares on the fixed 20-year schedule | Product decision, Nov 2026 |
 | Members sell whole shares back to the co-op or to new members (`sellQuote()`): proceeds = shares × current price, minus a 2% exit fee (`EXIT_FEE_RATE`) within 3 years of joining (`EXIT_FEE_YEARS`). No guaranteed minimum price. Selling keeps the member's home and rent | Product decision, Nov 2026 |
 | Swaps need 30–60 days' notice; equity unchanged | Spec §7 |
-| Contested swaps go to the member with the most priority points | Spec §7 |
+| Contested swaps (more requests than free homes) go to members whose priority points reach the home's cut-off (`matchSwap()`) | Spec §7 |
+| Priority points: +1 per monthly payment (`POINTS_PER_PAYMENT`, `monthlyPayment()`, which also buys that month's base shares); +1 per 120 extra shares bought by buyout or lump-sum upsize (`pointsForShares()`); selling shares removes the same fraction of points, rounded up (`pointsAfterSale()`); winning a contested swap spends 50% of points, rounded up (`SWAP_POINT_SPEND`, `swapPointCost()`); uncontested swaps are free | Product decision, Nov 2026 |
 | Upsize tab offers a buyout of the current home, plus lump-sum vs. higher-monthly options for a bigger tier | Spec §7 (M3) |
 
 Building availability, cut-off points, building value index and vote tallies are **illustrative mock data**, labelled as such in the UI.
