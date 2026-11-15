@@ -7,6 +7,9 @@ const DAY_MS = 86_400_000;
 export const formatUSD = (n) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
 
+/** Whole shares with thousands separators, e.g. 36000 -> "36,000". */
+export const formatShares = (n) => Math.floor(n).toLocaleString('en-US');
+
 export function getTier(tiers, id) {
   const tier = tiers.find((t) => t.id === id);
   if (!tier) throw new Error(`Unknown tier: ${id}`);

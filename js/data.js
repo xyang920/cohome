@@ -5,13 +5,19 @@
 export const MONTHS_TO_OWN = 240; // 20 years of payments => shares fully owned
 export const RENT_PER_SQFT = 3; // USD per square foot per month, same for every unit
 export const SHARE_SPLIT = 0.5; // share of each monthly payment that buys shares; the rest covers running costs
-// One share = one square foot, priced so the share part of 20 years of rent buys the whole home:
-// $3 × 50% × 240 months = $360 per share. A day-one buyout costs shares × SHARE_PRICE (no discount).
-export const SHARE_PRICE = RENT_PER_SQFT * SHARE_SPLIT * MONTHS_TO_OWN;
+// One share costs $3. The share part of 20 years of rent on one square foot is
+// $3 × 50% × 240 months = $360, so each square foot is worth 120 shares and a home is
+// fully owned after 20 years. A day-one buyout costs shares × SHARE_PRICE (no discount).
+export const SHARE_PRICE = 3;
+export const SHARES_PER_SQFT = (RENT_PER_SQFT * SHARE_SPLIT * MONTHS_TO_OWN) / SHARE_PRICE; // 120
 
-// `areaSqft` is the area the rent is charged on (shares map 1:1 to square feet);
-// `sqft` is the size range shown to visitors. Monthly rent = areaSqft × RENT_PER_SQFT.
-const withRent = (tier) => Object.freeze({ ...tier, monthly: tier.areaSqft * RENT_PER_SQFT });
+// `areaSqft` is the area the rent is charged on; `sqft` is the size range shown to visitors.
+// Monthly rent = areaSqft × RENT_PER_SQFT; shares = areaSqft × SHARES_PER_SQFT.
+const withRent = (tier) => Object.freeze({
+  ...tier,
+  monthly: tier.areaSqft * RENT_PER_SQFT,
+  shares: tier.areaSqft * SHARES_PER_SQFT,
+});
 
 export const TIERS = Object.freeze([
   {
@@ -19,7 +25,6 @@ export const TIERS = Object.freeze([
     name: 'Private Pod',
     sqft: '195–235',
     areaSqft: 200,
-    shares: 200,
     audience: 'Single professionals',
     image: 'assets/web/tier-s.webp',
     imageAlt: 'Cutaway render of the Private Pod: platform bed with storage, desk by the window, glass-walled bath and kitchenette',
@@ -30,7 +35,6 @@ export const TIERS = Object.freeze([
     name: 'Flex Suite',
     sqft: '260–300',
     areaSqft: 300,
-    shares: 300,
     audience: 'A separate living nook, or couples',
     image: 'assets/web/tier-m.webp',
     imageAlt: 'Cutaway render of the Flex Suite: sleeping alcove behind a slatted screen, sofa lounge, work niche, kitchenette and bath',
@@ -41,7 +45,6 @@ export const TIERS = Object.freeze([
     name: 'One bedroom + flex',
     sqft: '~600',
     areaSqft: 600,
-    shares: 600,
     audience: 'Growing households',
     image: 'assets/web/tier-l.webp',
     imageAlt: 'Cutaway render of the one bedroom + flex: bedroom, flexible room with daybed and desk, open living and dining, full kitchen and bath',

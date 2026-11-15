@@ -1,6 +1,6 @@
-import { TIERS, MARKET_RENT, PROBLEM_STATS, BUILDINGS, SHARE_PRICE, RENT_PER_SQFT, SHARE_SPLIT } from './data.js';
+import { TIERS, MARKET_RENT, PROBLEM_STATS, BUILDINGS, SHARE_PRICE, RENT_PER_SQFT, SHARE_SPLIT, SHARES_PER_SQFT } from './data.js';
 import {
-  getTier, projectOwnership, portfolioAllocation, validateWaitlist, formatUSD, buyoutQuote, paymentSplit,
+  getTier, projectOwnership, portfolioAllocation, validateWaitlist, formatUSD, buyoutQuote, paymentSplit, formatShares,
 } from './model.js';
 import { saveWaitlistEntry, isLiveStorage } from './waitlist.js';
 import { esc, $, icon } from './ui.js';
@@ -72,7 +72,7 @@ function renderStatic() {
       </div>
       <dl class="grid grid-cols-3 gap-2 text-center">
         <div><dt class="label">Size (sq ft)</dt><dd class="font-semibold whitespace-nowrap">${esc(t.sqft)}</dd></div>
-        <div><dt class="label">Shares</dt><dd class="font-semibold">${t.shares}</dd></div>
+        <div><dt class="label">Shares</dt><dd class="font-semibold">${formatShares(t.shares)}</dd></div>
         <div><dt class="label">Monthly</dt><dd class="font-semibold">${formatUSD(t.monthly)}</dd><dd class="text-xs text-stone-500">${t.areaSqft} sq ft × $${RENT_PER_SQFT}</dd></div>
       </dl>
       <ul class="mt-5 space-y-1 text-sm text-stone-600 flex-1">${t.features.map((f) => `<li>· ${esc(f)}</li>`).join('')}</ul>
@@ -90,7 +90,7 @@ function renderStatic() {
   const flex = getTier(TIERS, 'M');
   $('#hero-equity').textContent = formatUSD(flex.shares * SHARE_PRICE);
   $('#hero-equity-sub').textContent = `A Flex Suite you own after 20 years at ${formatUSD(flex.monthly)}/month, or buy it out on day one`;
-  $('#tiers-intro').textContent = `Furnished, with a built-in desk, modular storage and acoustic separation (STC ≥ 55). Rent is $${RENT_PER_SQFT} per square foot for every home: ${pct}% buys shares (one share per square foot, ${formatUSD(SHARE_PRICE)} each) and ${100 - pct}% covers running costs.`;
+  $('#tiers-intro').textContent = `Furnished, with a built-in desk, modular storage and acoustic separation (STC ≥ 55). Rent is $${RENT_PER_SQFT} per square foot for every home: ${pct}% buys shares at ${formatUSD(SHARE_PRICE)} each (${SHARES_PER_SQFT} shares per square foot) and ${100 - pct}% covers running costs.`;
   $('#calc-assumptions').innerHTML = `<strong>Assumptions:</strong> ${pct}% of each base payment buys shares at ${formatUSD(SHARE_PRICE)} (so ownership reaches 100% after 20 years) and ${100 - pct}% covers running costs and debt. Anything above the base payment buys extra shares. Day-one buyouts cost shares × ${formatUSD(SHARE_PRICE)}, no discount. Demo values, not a financial offer. Value growth defaults to 0%.`;
 
   const cheapest = Math.min(...TIERS.map((t) => t.monthly));
@@ -137,12 +137,12 @@ function updateCalc() {
   const rentPaid = rent * r.months;
   const max = Math.max(r.totalPaid, r.equity, rentPaid);
 
-  $('#out-shares').textContent = `${Math.floor(r.sharesOwned)} / ${tier.shares}`;
+  $('#out-shares').textContent = `${formatShares(r.sharesOwned)} / ${formatShares(tier.shares)}`;
   $('#out-pct').textContent = `shares of a ${tier.name} (${Math.round((r.sharesOwned / tier.shares) * 100)}%)`;
   $('#out-equity').textContent = formatUSD(r.equity);
   const yrs = (r.monthsToFullOwnership / 12).toFixed(1);
   $('#out-full').textContent = r.extraPerMonth > 0
-    ? `Fully owned in ${yrs} years (+${r.extraPerMonth} shares/mo)`
+    ? `Fully owned in ${yrs} years (+${formatShares(r.extraPerMonth)} shares/mo)`
     : `Fully owned in ${yrs} years`;
 
   $('#out-bars').innerHTML = [

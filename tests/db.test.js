@@ -55,7 +55,7 @@ test('create user rejects bad input', () => {
   assert.ok(db.users.create({ ...base, firstName: '' }).errors.firstName);
   assert.ok(db.users.create({ ...base, dateOfBirth: '2015-01-01' }).errors.dateOfBirth); // under 18
   assert.ok(db.users.create({ ...base, dateOfBirth: 'not-a-date' }).errors.dateOfBirth);
-  assert.ok(db.users.create({ ...base, shares: 201 }).errors.shares); // over Tier S total
+  assert.ok(db.users.create({ ...base, shares: 24001 }).errors.shares); // over Tier S total (24,000)
   assert.ok(db.users.create({ ...base, shares: 1.5 }).errors.shares);
   assert.ok(db.users.create({ ...base, propertyId: 'XXX' }).errors.propertyId);
   assert.ok(db.users.create({ ...base, propertyId: 'GOW-M-01' }).errors.propertyId); // occupied

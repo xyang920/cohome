@@ -26,11 +26,11 @@ export const SEED = Object.freeze({
   ],
   portfolio: [...units('GOW', 'gowanus'), ...units('DTB', 'downtown-bk'), ...units('BUS', 'bushwick')],
   users: [
-    { id: 'u-001', firstName: 'Demo', lastName: 'Member', dateOfBirth: '1996-05-12', shares: 84, propertyId: 'GOW-M-01' },
-    { id: 'u-002', firstName: 'Priya', lastName: 'Shah', dateOfBirth: '1993-02-03', shares: 150, propertyId: 'GOW-S-01' },
-    { id: 'u-003', firstName: 'Marcus', lastName: 'Lee', dateOfBirth: '1990-09-21', shares: 410, propertyId: 'DTB-L-01' },
-    { id: 'u-004', firstName: 'Sofia', lastName: 'Alvarez', dateOfBirth: '1998-11-30', shares: 60, propertyId: 'DTB-M-01' },
-    { id: 'u-005', firstName: 'Jordan', lastName: 'Kim', dateOfBirth: '1995-07-14', shares: 120, propertyId: 'BUS-M-01' },
-    { id: 'u-006', firstName: 'Elena', lastName: 'Petrova', dateOfBirth: '1992-03-08', shares: 95, propertyId: 'BUS-S-01' },
+    { id: 'u-001', firstName: 'Demo', lastName: 'Member', dateOfBirth: '1996-05-12', shares: 10080, propertyId: 'GOW-M-01' },
+    { id: 'u-002', firstName: 'Priya', lastName: 'Shah', dateOfBirth: '1993-02-03', shares: 18000, propertyId: 'GOW-S-01' },
+    { id: 'u-003', firstName: 'Marcus', lastName: 'Lee', dateOfBirth: '1990-09-21', shares: 49200, propertyId: 'DTB-L-01' },
+    { id: 'u-004', firstName: 'Sofia', lastName: 'Alvarez', dateOfBirth: '1998-11-30', shares: 7200, propertyId: 'DTB-M-01' },
+    { id: 'u-005', firstName: 'Jordan', lastName: 'Kim', dateOfBirth: '1995-07-14', shares: 14400, propertyId: 'BUS-M-01' },
+    { id: 'u-006', firstName: 'Elena', lastName: 'Petrova', dateOfBirth: '1992-03-08', shares: 11400, propertyId: 'BUS-S-01' },
   ],
 });

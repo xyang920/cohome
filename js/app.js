@@ -1,14 +1,14 @@
-import { TIERS, BUILDINGS, DEMO_MEMBER, PROPOSALS, SHARE_PRICE } from './data.js';
+import { TIERS, BUILDINGS, DEMO_MEMBER, PROPOSALS, SHARE_PRICE, SHARES_PER_SQFT } from './data.js';
 import { SEED } from './seed.js';
 import { createDb } from './db.js';
 import {
   getTier, memberSummary, upsizeOptions, validateSwapDates, matchSwap, portfolioAllocation, formatUSD,
-  buyoutQuote, paymentSplit,
+  buyoutQuote, paymentSplit, formatShares,
 } from './model.js';
 import { profileCard, communityCard, renderCommunities, renderDataTables, freeUnitOptions } from './app-data.js';
 import { esc, $ } from './ui.js';
 
-const STORE_KEY = 'sp-demo-state-v2';
+const STORE_KEY = 'sp-demo-state-v3';
 const MOCK_VOTES = { 'bushwick-2': 41, 'manhattan-les': 57, 'partner-coop': 23 };
 const TABS = ['dashboard', 'swap', 'upsize', 'vote', 'guest', 'communities', 'data'];
 
@@ -89,8 +89,8 @@ function renderDashboard() {
   const home = building(m.home);
   $('#member-name').textContent = m.name;
   $('#kpis').innerHTML = [
-    kpi('Shares held', `${m.shares} / ${s.tier.shares}`, `${s.ownedPct}% of your ${s.tier.name}`),
-    kpi('Equity value', formatUSD(s.equity), `${m.shares} × $${SHARE_PRICE} per share`),
+    kpi('Shares held', `${formatShares(m.shares)} / ${formatShares(s.tier.shares)}`, `${s.ownedPct}% of your ${s.tier.name}`),
+    kpi('Equity value', formatUSD(s.equity), `${formatShares(m.shares)} × $${SHARE_PRICE} per share`),
     kpi('Current home', home ? home.name : m.community.location, `${m.property.id} · ${formatUSD(monthlyDue(s.tier, m.shares))}/month`),
     kpi('Priority points', String(m.points), 'Earned by paying fees and buying shares'),
   ].join('');
@@ -98,7 +98,7 @@ function renderDashboard() {
 
   $('#ownership').innerHTML = `
     <div class="bar-track !h-4"><div class="bar-fill bg-moss" style="width:${Math.min(100, s.ownedPct)}%"></div></div>
-    <div class="mt-3 flex justify-between text-sm"><span>${s.ownedPct}% owned</span><span>${s.remainingShares} shares to go</span></div>
+    <div class="mt-3 flex justify-between text-sm"><span>${s.ownedPct}% owned</span><span>${formatShares(s.remainingShares)} shares to go</span></div>
     ${s.remainingShares === 0
     ? `<p class="mt-4 text-sm text-stone-600">You own your ${esc(s.tier.name)} outright. You pay ${formatUSD(paymentSplit(s.tier).toRunningCosts)}/month for running costs.</p>`
     : `<p class="mt-4 text-sm text-stone-600">Of your ${formatUSD(s.tier.monthly)} payment, ${formatUSD(paymentSplit(s.tier).toShares)} buys shares. You fully own your ${esc(s.tier.name)} in
@@ -154,7 +154,7 @@ function onSwapSubmit(e) {
         <div class="flex items-center gap-3"><span class="badge ${cls}">${esc(title)}</span>
           <span class="text-sm text-stone-500">${esc(target.name)} · Tier ${esc(tierId)} · ${dates.notice} days' notice</span></div>
         <p class="mt-3">${esc(detail)}</p>
-        ${canConfirm ? `<p class="mt-2 text-sm text-stone-600">Your ${m.shares} shares (${formatUSD(m.shares * SHARE_PRICE)}) move with you.${tierChange ? ' Changing tier also changes your monthly fee; use Upsize to plan it.' : ''}</p>
+        ${canConfirm ? `<p class="mt-2 text-sm text-stone-600">Your ${formatShares(m.shares)} shares (${formatUSD(m.shares * SHARE_PRICE)}) move with you.${tierChange ? ' Changing tier also changes your monthly fee; use Upsize to plan it.' : ''}</p>
           <button class="btn-primary mt-4" data-confirm-swap="${esc(target.id)}" ${tierChange ? 'disabled title="Same-tier swaps only in this demo"' : ''}>Confirm swap</button>` : ''}
       </div>
       ${community ? communityCard(community, { title: 'About this community' }) : ''}
@@ -190,7 +190,7 @@ function buyoutCard(m, tier) {
     <div class="card mb-6">
       <p class="eyebrow">Buy out your ${esc(tier.name)}</p>
       <h2 class="font-display text-3xl mt-1">Own it outright for ${formatUSD(q.cost)}</h2>
-      <p class="text-stone-600 mt-1">${q.sharesToBuy} remaining shares × ${formatUSD(SHARE_PRICE)}, no early-payment discount.
+      <p class="text-stone-600 mt-1">${formatShares(q.sharesToBuy)} remaining shares × ${formatUSD(SHARE_PRICE)}, no early-payment discount.
         Your payment drops from ${formatUSD(q.monthlyNow)} to ${formatUSD(q.monthlyAfter)}/month (running costs only).</p>
       <button class="btn-primary mt-4" data-buyout="1">Buy out for ${formatUSD(q.cost)}</button>
     </div>`;
@@ -214,20 +214,20 @@ function renderUpsize() {
     return `
     <div class="card mb-6">
       <p class="eyebrow">Tier ${esc(current.id)} → Tier ${esc(t.id)}</p>
-      <h2 class="font-display text-3xl mt-1">You need ${u.sharesNeeded} more shares for Tier ${esc(t.id)}</h2>
+      <h2 class="font-display text-3xl mt-1">You need ${formatShares(u.sharesNeeded)} more shares for Tier ${esc(t.id)}</h2>
       <p class="text-stone-600 mt-1">${esc(t.name)}, ${esc(t.sqft)} sq ft · ${formatUSD(u.newMonthly)}/month (+${formatUSD(u.monthlyIncrease)})</p>
       <p class="text-sm mt-2">${where}</p>
       <div class="mt-6 grid md:grid-cols-2 gap-4">
         <div class="rounded-2xl border border-stone-200 p-5">
           <h3 class="font-semibold">Lump sum</h3>
           <p class="font-display text-3xl mt-2">${formatUSD(u.lumpSum)}</p>
-          <p class="text-sm text-stone-600 mt-1">You'd own ${u.lump.sharesOwned} of ${t.shares} shares and own the home outright in ${u.lump.yearsToFull} years.</p>
+          <p class="text-sm text-stone-600 mt-1">You'd own ${formatShares(u.lump.sharesOwned)} of ${formatShares(t.shares)} shares and own the home outright in ${u.lump.yearsToFull} years.</p>
           <button class="btn-primary mt-4" data-upsize="${t.id}" data-mode="lump" ${dis}>Choose lump sum</button>
         </div>
         <div class="rounded-2xl border border-stone-200 p-5">
           <h3 class="font-semibold">Higher monthly payment</h3>
           <p class="font-display text-3xl mt-2">${formatUSD(u.newMonthly)}<span class="text-base text-stone-500">/mo</span></p>
-          <p class="text-sm text-stone-600 mt-1">No upfront cost. Keep your ${u.monthly.sharesOwned} shares and own the home outright in ${u.monthly.yearsToFull} years.</p>
+          <p class="text-sm text-stone-600 mt-1">No upfront cost. Keep your ${formatShares(u.monthly.sharesOwned)} shares and own the home outright in ${u.monthly.yearsToFull} years.</p>
           <button class="btn-ghost mt-4" data-upsize="${t.id}" data-mode="monthly" ${dis}>Choose monthly</button>
         </div>
       </div>
@@ -242,7 +242,7 @@ function confirmBuyout() {
   if (q.sharesToBuy === 0) return;
   if (!db.users.update(m.user.id, { shares: tier.shares }).ok) return;
   setState({
-    member: { ...state.member, points: m.points + q.sharesToBuy },
+    member: { ...state.member, points: m.points + Math.round(q.sharesToBuy / SHARES_PER_SQFT) },
     activity: logActivity(`Bought out ${m.property.id} for ${formatUSD(q.cost)}; now ${formatUSD(q.monthlyAfter)}/month`),
   });
   showTab('dashboard');
@@ -257,7 +257,7 @@ function confirmUpsize(tierId, mode) {
   const res = db.users.update(m.user.id, { propertyId: unit.id, shares });
   if (!res.ok) return;
   setState({
-    member: { ...state.member, points: m.points + (mode === 'lump' ? u.sharesNeeded : 0) },
+    member: { ...state.member, points: m.points + (mode === 'lump' ? Math.round(u.sharesNeeded / SHARES_PER_SQFT) : 0) },
     activity: logActivity(`Upsized to Tier ${tierId}, home ${unit.id} (${mode === 'lump' ? `lump sum ${formatUSD(u.lumpSum)}` : `${formatUSD(u.newMonthly)}/month`})`),
   });
   initSwapForm();

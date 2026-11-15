@@ -4,20 +4,20 @@ import {
   getTier, projectOwnership, memberSummary, upsizeOptions, buyoutQuote,
   validateSwapDates, matchSwap, portfolioAllocation, validateWaitlist,
 } from '../js/model.js';
-import { TIERS, BUILDINGS, SHARE_PRICE, SHARE_SPLIT } from '../js/data.js';
+import { TIERS, BUILDINGS, SHARE_PRICE, SHARE_SPLIT, SHARES_PER_SQFT } from '../js/data.js';
 
 const M = getTier(TIERS, 'M');
-// Same values as user u-001 in js/seed.js (Tier M home, 84 shares).
-const DEMO_MEMBER = Object.freeze({ tier: 'M', shares: 84 });
+// Same values as user u-001 in js/seed.js (Tier M home, 10,080 shares).
+const DEMO_MEMBER = Object.freeze({ tier: 'M', shares: 10080 });
 
 test('getTier finds a tier and rejects unknown ids', () => {
-  assert.equal(M.shares, 300);
+  assert.equal(M.shares, 36000);
   assert.throws(() => getTier(TIERS, 'XL'), /Unknown tier/);
 });
 
 test('base fee owns the tier outright after 20 years', () => {
   const r = projectOwnership({ tier: M, monthlyFee: 900, years: 20 });
-  assert.equal(r.sharesOwned, 300);
+  assert.equal(r.sharesOwned, 36000);
   assert.equal(r.equity, 108000);
   assert.equal(r.totalPaid, 216000);
   assert.equal(r.monthsToFullOwnership, 240);
@@ -25,25 +25,25 @@ test('base fee owns the tier outright after 20 years', () => {
 
 test('ownership accrues evenly before 20 years', () => {
   const r = projectOwnership({ tier: M, monthlyFee: 900, years: 10 });
-  assert.equal(r.sharesOwned, 150);
+  assert.equal(r.sharesOwned, 18000);
   assert.equal(r.equity, 54000);
 });
 
 test('paying above the base fee buys extra shares and shortens the path', () => {
   const r = projectOwnership({ tier: M, monthlyFee: 1260, years: 5 });
-  // 1.25 accrued + 1 extra (360/360) = 2.25 shares a month
-  assert.equal(r.sharesOwned, 135);
-  assert.equal(r.monthsToFullOwnership, Math.ceil(300 / 2.25));
+  // 150 accrued + 120 extra ($360 / $3) = 270 shares a month
+  assert.equal(r.sharesOwned, 16200);
+  assert.equal(r.monthsToFullOwnership, Math.ceil(36000 / 270));
 });
 
 test('shares never exceed the tier total', () => {
   const r = projectOwnership({ tier: M, monthlyFee: 1900, years: 30 });
-  assert.equal(r.sharesOwned, 300);
+  assert.equal(r.sharesOwned, 36000);
 });
 
 test('appreciation grows equity value, not share count', () => {
   const r = projectOwnership({ tier: M, monthlyFee: 900, years: 20, appreciation: 0.02 });
-  assert.equal(r.sharesOwned, 300);
+  assert.equal(r.sharesOwned, 36000);
   assert.ok(Math.abs(r.equity - 108000 * 1.02 ** 20) < 1);
 });
 
@@ -53,21 +53,21 @@ test('fee below the tier base fee is rejected', () => {
 
 test('member summary for the demo member', () => {
   const s = memberSummary(DEMO_MEMBER, TIERS);
-  assert.equal(s.equity, 84 * SHARE_PRICE);
-  assert.equal(s.remainingShares, 216);
+  assert.equal(s.equity, 10080 * SHARE_PRICE);
+  assert.equal(s.remainingShares, 25920);
   assert.equal(s.ownedPct, 28);
   assert.equal(s.yearsToFull, 14.4);
 });
 
-test('upsize M to L needs 300 more shares', () => {
+test('upsize M to L needs 36,000 more shares', () => {
   const u = upsizeOptions(DEMO_MEMBER, TIERS, 'L');
-  assert.equal(u.sharesNeeded, 300);
+  assert.equal(u.sharesNeeded, 36000);
   assert.equal(u.lumpSum, 108000);
   assert.equal(u.newMonthly, 1800);
   assert.equal(u.monthlyIncrease, 900);
-  // lump: owns 384 of 600, accrues 2.5/month => 216/2.5/12 = 7.2 years
+  // lump: owns 46,080 of 72,000, accrues 300/month => 25,920/300/12 = 7.2 years
   assert.equal(u.lump.yearsToFull, 7.2);
-  // monthly only: owns 84 of 600 => 516/2.5/12 = 17.2 years
+  // monthly only: owns 10,080 of 72,000 => 61,920/300/12 = 17.2 years
   assert.equal(u.monthly.yearsToFull, 17.2);
 });
 
@@ -126,9 +126,11 @@ test('rent is $3 per square foot for every unit', async () => {
   assert.deepEqual(TIERS.map((t) => [t.id, t.areaSqft, t.monthly]), [['S', 200, 600], ['M', 300, 900], ['L', 600, 1800]]);
 });
 
-test('50% of rent buys shares, so a share costs $360', () => {
+test('a share costs $3 and 120 shares make one square foot', () => {
   assert.equal(SHARE_SPLIT, 0.5);
-  assert.equal(SHARE_PRICE, 360);
+  assert.equal(SHARE_PRICE, 3);
+  assert.equal(SHARES_PER_SQFT, 120);
+  assert.deepEqual(TIERS.map((t) => t.shares), [24000, 36000, 72000]);
   // the share half of 20 years of base rent buys exactly the whole tier, for every tier
   for (const t of TIERS) assert.equal(t.monthly * SHARE_SPLIT * 240, t.shares * SHARE_PRICE);
 });
@@ -137,12 +139,12 @@ test('day-one buyout has no discount and leaves the running-cost half to pay', (
   assert.deepEqual(TIERS.map((t) => buyoutQuote(t, 0).cost), [72000, 108000, 216000]);
   const q = buyoutQuote(M, 0);
   assert.equal(q.monthlyAfter, 450);
-  assert.equal(q.sharesToBuy, 300);
+  assert.equal(q.sharesToBuy, 36000);
 });
 
 test('buyout for an existing member only charges the shares still owed', () => {
-  const q = buyoutQuote(M, 84);
-  assert.equal(q.sharesToBuy, 216);
-  assert.equal(q.cost, 216 * 360);
-  assert.equal(buyoutQuote(M, 300).cost, 0);
+  const q = buyoutQuote(M, 10080);
+  assert.equal(q.sharesToBuy, 25920);
+  assert.equal(q.cost, 25920 * 3);
+  assert.equal(buyoutQuote(M, 36000).cost, 0);
 });

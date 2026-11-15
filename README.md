@@ -26,7 +26,7 @@ Three tables, joined user → property → community:
 
 | Table | Fields | Rules |
 |---|---|---|
-| **User** | `id`, `firstName`, `lastName`, `dateOfBirth`, `shares`, `propertyId` → Portfolio | Age ≥ 18; whole shares, at most the home's tier total (S 200 / M 300 / L 600); one user per home |
+| **User** | `id`, `firstName`, `lastName`, `dateOfBirth`, `shares`, `propertyId` → Portfolio | Age ≥ 18; whole shares, at most the home's tier total (S 24,000 / M 36,000 / L 72,000); one user per home |
 | **Portfolio** | `id`, `tier` (S/M/L), `communityId` → Community | One row per home. Occupied homes can't be changed or removed |
 | **Community** | `id`, `riskLevel` (1–5), `location`, `amenities` (list), `safetyLevel` (1–5) | A community with homes can't be removed |
 
@@ -67,11 +67,11 @@ scripts/serve.mjs       local static server
 
 | Rule | Source |
 |---|---|
-| Tiers S 200 / M 300 / L 600 shares; one share = one sq ft | Spec §5, §11 |
+| Tiers S 24,000 / M 36,000 / L 72,000 shares = area × 120 shares per sq ft (`SHARES_PER_SQFT`) | Spec §5, §11; share price changed Nov 2026 |
 | Rent is $3 per sq ft per month for every unit (`RENT_PER_SQFT`), charged on `areaSqft` (S 200 / M 300 / L 600 sq ft) → $600 / $900 / $1,800 a month | Product decision, Nov 2026 |
-| 50% of each payment buys shares (`SHARE_SPLIT`), 50% covers running costs and debt. Share price = $3 × 50% × 240 months = **$360** (`SHARE_PRICE`), so the share half of 20 years of rent buys the whole home | Product decision, Nov 2026 |
-| Paying above the base fee buys extra shares at $360 | Spec §9 calculator logic |
-| Day-one buyout = shares still owed × $360, no early-payment discount (S $72,000 / M $108,000 / L $216,000); afterwards the member pays only the running-cost half (S $300 / M $450 / L $900 a month) | Product decision, Nov 2026 |
+| 50% of each payment buys shares (`SHARE_SPLIT`), 50% covers running costs and debt. One share costs **$3** (`SHARE_PRICE`). The share half of 20 years of rent on one sq ft is $3 × 50% × 240 = $360 = 120 shares, so the home is fully owned after 20 years | Product decision, Nov 2026 |
+| Paying above the base fee buys extra shares at $3 each | Spec §9 calculator logic |
+| Day-one buyout = shares still owed × $3, no early-payment discount (S $72,000 / M $108,000 / L $216,000); afterwards the member pays only the running-cost half (S $300 / M $450 / L $900 a month) | Product decision, Nov 2026 |
 | Swaps need 30–60 days' notice; equity unchanged | Spec §7 |
 | Contested swaps go to the member with the most priority points | Spec §7 |
 | Upsize tab offers a buyout of the current home, plus lump-sum vs. higher-monthly options for a bigger tier | Spec §7 (M3) |
